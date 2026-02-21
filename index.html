@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="BP Tracker">
 <title>BP Tracker</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js"></script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -113,6 +113,25 @@
     text-align: center; padding: 16px 0; font-size: 11px;
     color: #8A8778; line-height: 1.6;
   }
+  .settings-toggle {
+    text-align: center; margin-bottom: 10px;
+  }
+  .settings-toggle button {
+    background: none; border: none; color: #8A8778; font-size: 13px;
+    cursor: pointer; font-family: inherit; text-decoration: underline;
+  }
+  .api-key-input {
+    width: 100%; padding: 10px 12px; border-radius: 8px;
+    border: 1.5px solid #DDD9CF; font-size: 14px; font-family: monospace;
+    color: #1A1A1A; background: #FFF; outline: none;
+  }
+  .api-key-input:focus { border-color: #3A7D5C; }
+  .api-status {
+    margin-top: 8px; font-size: 12px; font-weight: 600;
+    padding: 6px 10px; border-radius: 6px;
+  }
+  .api-status.ok { background: #D4E8DB; color: #3A7D5C; }
+  .api-status.missing { background: #FFF3E0; color: #D4873C; }
   .progress-bar {
     height: 4px; background: #EAE7E0; border-radius: 2px;
     margin-top: 10px; overflow: hidden;
@@ -225,6 +244,21 @@
   High Stage 1: 130–139/80–89 · Stage 2: ≥140/≥90
 </div>
 
+<div class="settings-toggle">
+  <button onclick="toggleSettings()">⚙️ API Key Settings</button>
+</div>
+
+<div id="settings-panel" class="card hidden">
+  <div class="sec-title">🔑 Claude API Key</div>
+  <p style="font-size:13px;color:#555549;margin-bottom:10px;line-height:1.4">
+    Needed for camera scanning. Get one free at
+    <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:#3A7D5C">console.anthropic.com</a>
+  </p>
+  <input type="password" class="api-key-input" id="api-key" placeholder="sk-ant-..." oninput="saveApiKey()">
+  <div id="api-status"></div>
+  <div style="margin-top:8px;font-size:11px;color:#8A8778">Your key is stored only on this device.</div>
+</div>
+
 <script>
 // ── Data ──
 function getReadings() {
@@ -323,78 +357,147 @@ function saveReading() {
   showTab("history");
 }
 
-// ── OCR ──
+// ── Scan Helpers ──
 function showScanMsg(text, type) {
-  const el = document.getElementById("scan-msg");
+  var el = document.getElementById("scan-msg");
   el.textContent = text;
   el.className = "scan-msg " + type;
   el.classList.remove("hidden");
 }
 
 function showProgress(pct) {
-  const bar = document.getElementById("progress");
-  const fill = document.getElementById("progress-fill");
+  var bar = document.getElementById("progress");
+  var fill = document.getElementById("progress-fill");
   bar.classList.remove("hidden");
   fill.style.width = pct + "%";
 }
 
+// ── API Key ──
+function getApiKey() { return localStorage.getItem("bp-api-key") || ""; }
+function saveApiKey() {
+  const key = document.getElementById("api-key").value.trim();
+  localStorage.setItem("bp-api-key", key);
+  updateApiStatus();
+}
+function updateApiStatus() {
+  const el = document.getElementById("api-status");
+  const key = getApiKey();
+  if (key && key.startsWith("sk-")) {
+    el.className = "api-status ok";
+    el.textContent = "✓ Key saved — camera scanning ready";
+  } else if (key) {
+    el.className = "api-status missing";
+    el.textContent = "Key should start with sk-ant-...";
+  } else {
+    el.className = "api-status missing";
+    el.textContent = "No key set — camera scanning disabled";
+  }
+}
+function toggleSettings() {
+  document.getElementById("settings-panel").classList.toggle("hidden");
+}
+
+// ── OCR via Claude API ──
+function compressImage(dataUrl, maxWidth) {
+  maxWidth = maxWidth || 800;
+  return new Promise(function(resolve) {
+    var img = new Image();
+    img.onload = function() {
+      var canvas = document.createElement("canvas");
+      var w = img.width, h = img.height;
+      if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+      canvas.width = w;
+      canvas.height = h;
+      var ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+      var compressed = canvas.toDataURL("image/jpeg", 0.6);
+      resolve(compressed.split(",")[1]);
+    };
+    img.onerror = function() { resolve(null); };
+    img.src = dataUrl;
+  });
+}
+
 async function handlePhoto(input) {
-  const file = input.files?.[0];
+  var file = input.files && input.files[0];
   if (!file) return;
   input.value = "";
 
-  showScanMsg("Reading monitor...", "scanning");
+  var apiKey = getApiKey();
+  if (!apiKey || !apiKey.startsWith("sk-")) {
+    showScanMsg("Set your API key first (scroll down to ⚙️ Settings)", "error");
+    return;
+  }
+
+  showScanMsg("Compressing photo...", "scanning");
   showProgress(20);
 
   try {
-    // Use simpler recognize API with timeout
-    const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Timed out after 30s. Try better lighting or type manually.")), 30000)
-    );
-
-    showProgress(40);
-
-    const ocrResult = Tesseract.recognize(file, "eng", {
-      logger: (m) => {
-        if (m.status === "recognizing text" && m.progress) {
-          showProgress(40 + Math.round(m.progress * 50));
-          showScanMsg("Reading... " + Math.round(m.progress * 100) + "%", "scanning");
-        } else if (m.status) {
-          showScanMsg(m.status + "...", "scanning");
-        }
-      }
+    // Read file as data URL
+    var dataUrl = await new Promise(function(resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function() { resolve(reader.result); };
+      reader.onerror = function() { reject(new Error("Could not read file")); };
+      reader.readAsDataURL(file);
     });
 
-    const { data } = await Promise.race([ocrResult, timeout]);
+    showScanMsg("Sending to AI...", "scanning");
+    showProgress(50);
+
+    var base64 = await compressImage(dataUrl);
+    if (!base64) { showScanMsg("Could not process image", "error"); return; }
+
+    var res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 300,
+        messages: [{
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: { type: "base64", media_type: "image/jpeg", data: base64 }
+            },
+            {
+              type: "text",
+              text: "This is a photo of a blood pressure monitor. Read the numbers on the screen. Return ONLY a JSON object: {\"systolic\":NUMBER,\"diastolic\":NUMBER,\"pulse\":NUMBER}. Use null for any value you cannot read. Return ONLY the JSON."
+            }
+          ]
+        }]
+      })
+    });
+
+    showProgress(80);
+
+    if (!res.ok) {
+      var errText = await res.text();
+      showScanMsg("API error " + res.status + ": " + errText.slice(0, 150), "error");
+      document.getElementById("progress").classList.add("hidden");
+      return;
+    }
+
+    var data = await res.json();
     showProgress(100);
 
-    const text = data.text;
-    const numbers = text.match(/\d+/g)?.map(Number).filter(n => n > 0 && n < 300) || [];
+    var txt = data.content.map(function(b) { return b.text || ""; }).join("");
+    var clean = txt.replace(/```json|```/g, "").trim();
+    var result = JSON.parse(clean);
 
-    if (numbers.length >= 2) {
-      const bpNums = numbers.filter(n => n >= 40 && n <= 250);
+    if (result.systolic != null) document.getElementById("systolic").value = result.systolic;
+    if (result.diastolic != null) document.getElementById("diastolic").value = result.diastolic;
+    if (result.pulse != null) document.getElementById("pulse").value = result.pulse;
+    updatePreview();
+    showScanMsg("Got it! Check the numbers and save.", "success");
 
-      if (bpNums.length >= 2) {
-        const sorted = [...bpNums].sort((a, b) => b - a);
-        const sys = sorted[0];
-        const dia = sorted[1];
-        const pulseNums = numbers.filter(n => n !== sys && n !== dia && n >= 30 && n <= 200);
-
-        document.getElementById("systolic").value = sys;
-        document.getElementById("diastolic").value = dia;
-        if (pulseNums.length > 0) {
-          document.getElementById("pulse").value = pulseNums[0];
-        }
-        updatePreview();
-        showScanMsg("Got it! Check the numbers and save.", "success");
-      } else {
-        showScanMsg("Found numbers but couldn't identify BP values. Raw: " + text.slice(0, 100), "error");
-      }
-    } else {
-      showScanMsg("Couldn't read numbers. Try better lighting or type manually. Raw: " + text.slice(0, 80), "error");
-    }
   } catch (err) {
-    showScanMsg(err.message || "OCR error", "error");
+    showScanMsg("Error: " + (err.message || err), "error");
   }
 
   document.getElementById("progress").classList.add("hidden");
@@ -526,6 +629,8 @@ function renderCharts() {
 
 // ── Init ──
 document.getElementById("datetime").value = localNow();
+document.getElementById("api-key").value = getApiKey();
+updateApiStatus();
 </script>
 </body>
 </html>
