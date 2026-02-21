@@ -166,6 +166,7 @@
       <div class="scan-title">Tap to take a photo</div>
       <div class="scan-sub">Point at your BP monitor screen</div>
     </div>
+    <div id="scan-key-status" style="margin-top:8px;font-size:12px;text-align:center"></div>
     <input type="file" id="file-input" accept="image/*" capture="environment" onchange="handlePhoto(this)">
     <div id="scan-msg" class="scan-msg hidden"></div>
     <div id="progress" class="progress-bar hidden"><div id="progress-fill" class="progress-fill" style="width:0%"></div></div>
@@ -256,7 +257,11 @@
   </p>
   <input type="password" class="api-key-input" id="api-key" placeholder="sk-ant-..." oninput="saveApiKey()">
   <div id="api-status"></div>
-  <div style="margin-top:8px;font-size:11px;color:#8A8778">Your key is stored only on this device.</div>
+  <div style="margin-top:8px;font-size:11px;color:#8A8778;line-height:1.4">
+    Your key is stored only on this device.<br>
+    ⚠️ <b>Important:</b> Make sure you're NOT in Private/Incognito mode or Safari will erase the key each time.
+    Also: add this page to your Home Screen for best results.
+  </div>
 </div>
 
 <script>
@@ -373,24 +378,43 @@ function showProgress(pct) {
 }
 
 // ── API Key ──
-function getApiKey() { return localStorage.getItem("bp-api-key") || ""; }
+function getApiKey() { 
+  try { return localStorage.getItem("bp-api-key") || ""; }
+  catch { return ""; }
+}
 function saveApiKey() {
-  const key = document.getElementById("api-key").value.trim();
-  localStorage.setItem("bp-api-key", key);
+  var key = document.getElementById("api-key").value.trim();
+  try { 
+    localStorage.setItem("bp-api-key", key);
+    // Verify it actually saved
+    var check = localStorage.getItem("bp-api-key");
+    if (check !== key) {
+      document.getElementById("api-status").className = "api-status missing";
+      document.getElementById("api-status").textContent = "⚠ Could not save — turn off Private Browsing in Safari";
+    }
+  } catch(e) {
+    document.getElementById("api-status").className = "api-status missing";
+    document.getElementById("api-status").textContent = "⚠ Storage blocked — turn off Private Browsing in Safari";
+    return;
+  }
   updateApiStatus();
 }
 function updateApiStatus() {
-  const el = document.getElementById("api-status");
-  const key = getApiKey();
+  var el = document.getElementById("api-status");
+  var scanStatus = document.getElementById("scan-key-status");
+  var key = getApiKey();
   if (key && key.startsWith("sk-")) {
     el.className = "api-status ok";
     el.textContent = "✓ Key saved — camera scanning ready";
+    scanStatus.innerHTML = '<span style="color:#3A7D5C;font-weight:600">✓ API key set — ready to scan</span>';
   } else if (key) {
     el.className = "api-status missing";
     el.textContent = "Key should start with sk-ant-...";
+    scanStatus.innerHTML = '<span style="color:#D4873C">⚠ Invalid API key — check settings below ↓</span>';
   } else {
     el.className = "api-status missing";
     el.textContent = "No key set — camera scanning disabled";
+    scanStatus.innerHTML = '<span style="color:#D4873C">Set API key below ↓ to enable scanning</span>';
   }
 }
 function toggleSettings() {
@@ -631,6 +655,10 @@ function renderCharts() {
 document.getElementById("datetime").value = localNow();
 document.getElementById("api-key").value = getApiKey();
 updateApiStatus();
+// Auto-show settings if no key saved
+if (!getApiKey()) {
+  document.getElementById("settings-panel").classList.remove("hidden");
+}
 </script>
 </body>
 </html>
