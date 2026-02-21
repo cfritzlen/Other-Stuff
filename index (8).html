@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BP Tracker">
+<title>BP Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Avenir', 'Nunito', 'Segoe UI', sans-serif;
+    background: #F0EDE6; color: #1A1A1A;
+    max-width: 480px; margin: 0 auto; padding: 0 16px 60px;
+    min-height: 100vh; -webkit-font-smoothing: antialiased;
+  }
+  .header { text-align: center; padding: 28px 0 12px; }
+  .header h1 { font-size: 24px; font-weight: 700; color: #2D5F46; }
+  .header p { font-size: 13px; color: #8A8778; margin-top: 4px; }
+  .tabs { display: flex; border-bottom: 2px solid #EAE7E0; margin-bottom: 16px; }
+  .tab {
+    flex: 1; padding: 10px 0; border: none; background: none;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: inherit; border-bottom: 2.5px solid transparent;
+    color: #8A8778; transition: all 0.2s;
+  }
+  .tab.active { color: #3A7D5C; border-bottom-color: #3A7D5C; }
+  .card {
+    background: #FFF; border-radius: 16px; padding: 20px;
+    margin-bottom: 14px; border: 1px solid #EAE7E0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .sec-title {
+    font-size: 13px; font-weight: 700; color: #2D5F46;
+    text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px;
+  }
+  .scan-area {
+    border: 2px dashed #DDD9CF; border-radius: 12px;
+    padding: 24px 16px; text-align: center; cursor: pointer;
+    background: #FAFAF7; transition: all 0.2s;
+  }
+  .scan-area:active { background: #D4E8DB; border-color: #3A7D5C; }
+  .scan-icon { font-size: 32px; margin-bottom: 6px; }
+  .scan-title { font-size: 15px; font-weight: 600; color: #2D5F46; }
+  .scan-sub { font-size: 12px; color: #8A8778; margin-top: 4px; }
+  .scan-msg {
+    margin-top: 10px; padding: 8px 12px; border-radius: 8px;
+    font-size: 13px; font-weight: 600; word-break: break-word;
+  }
+  .scan-msg.success { background: #D4E8DB; color: #3A7D5C; }
+  .scan-msg.error { background: #FFF3E0; color: #D4873C; }
+  .scan-msg.scanning { background: #D4E8DB; color: #3A7D5C; }
+  .row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .field { flex: 1; }
+  .label {
+    display: block; font-size: 11px; font-weight: 700; color: #8A8778;
+    text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 5px;
+  }
+  input, textarea {
+    width: 100%; padding: 10px 12px; border-radius: 8px;
+    border: 1.5px solid #DDD9CF; font-size: 16px; font-family: inherit;
+    color: #1A1A1A; background: #FFF; outline: none;
+  }
+  input:focus, textarea:focus { border-color: #3A7D5C; }
+  textarea { font-size: 14px; resize: vertical; min-height: 56px; }
+  .preview {
+    padding: 8px 14px; border-radius: 10px; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .preview-num { font-size: 22px; font-weight: 700; }
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+  }
+  .btns { display: flex; gap: 10px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 12px 24px; border-radius: 10px; border: none;
+    font-weight: 600; font-size: 15px; cursor: pointer; font-family: inherit;
+  }
+  .btn-pri { background: #3A7D5C; color: #FFF; flex: 1; }
+  .btn-pri:disabled { opacity: 0.4; cursor: default; }
+  .btn-out { background: transparent; color: #3A7D5C; border: 1.5px solid #3A7D5C; }
+  .reading {
+    padding: 14px 16px; border-radius: 12px; background: #FAFAF7;
+    border: 1px solid #EAE7E0; margin-bottom: 10px;
+  }
+  .reading-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .reading-date { font-size: 12px; color: #8A8778; font-weight: 600; }
+  .reading-vals { display: flex; gap: 16px; align-items: baseline; }
+  .reading-bp { font-size: 26px; font-weight: 700; }
+  .reading-slash { font-size: 14px; color: #8A8778; }
+  .reading-unit { font-size: 12px; color: #8A8778; margin-left: 4px; }
+  .reading-pulse { font-size: 20px; font-weight: 700; color: #D4A03C; }
+  .reading-del {
+    margin-left: auto; background: none; border: none;
+    cursor: pointer; color: #8A8778; font-size: 18px; padding: 4px;
+  }
+  .reading-notes {
+    font-size: 13px; color: #555549; line-height: 1.4;
+    border-top: 1px solid #EAE7E0; padding-top: 8px; margin-top: 8px;
+  }
+  .empty { text-align: center; padding: 30px 0; color: #8A8778; }
+  .empty-icon { font-size: 36px; margin-bottom: 8px; }
+  .chart-wrap { margin-bottom: 24px; }
+  .chart-label {
+    font-size: 12px; font-weight: 700; color: #8A8778;
+    text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px;
+  }
+  .footer {
+    text-align: center; padding: 16px 0; font-size: 11px;
+    color: #8A8778; line-height: 1.6;
+  }
+  .progress-bar {
+    height: 4px; background: #EAE7E0; border-radius: 2px;
+    margin-top: 10px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; background: #3A7D5C; border-radius: 2px;
+    transition: width 0.3s;
+  }
+  .hidden { display: none; }
+  #file-input { display: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>♥ BP Tracker</h1>
+  <p>Snap · Log · Track</p>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('add')">＋ New</button>
+  <button class="tab" onclick="showTab('history')">History</button>
+  <button class="tab" onclick="showTab('charts')">Charts</button>
+</div>
+
+<!-- ADD TAB -->
+<div id="tab-add">
+  <div class="card">
+    <div class="sec-title">📷 Scan Monitor</div>
+    <div class="scan-area" onclick="document.getElementById('file-input').click()">
+      <div class="scan-icon">📸</div>
+      <div class="scan-title">Tap to take a photo</div>
+      <div class="scan-sub">Point at your BP monitor screen</div>
+    </div>
+    <input type="file" id="file-input" accept="image/*" capture="environment" onchange="handlePhoto(this)">
+    <div id="scan-msg" class="scan-msg hidden"></div>
+    <div id="progress" class="progress-bar hidden"><div id="progress-fill" class="progress-fill" style="width:0%"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="sec-title">Readings</div>
+    <div class="row">
+      <div class="field">
+        <label class="label">Systolic</label>
+        <input type="number" inputmode="numeric" id="systolic" placeholder="120" oninput="updatePreview()">
+      </div>
+      <div class="field">
+        <label class="label">Diastolic</label>
+        <input type="number" inputmode="numeric" id="diastolic" placeholder="80" oninput="updatePreview()">
+      </div>
+      <div class="field">
+        <label class="label">Pulse</label>
+        <input type="number" inputmode="numeric" id="pulse" placeholder="72">
+      </div>
+    </div>
+
+    <div id="preview" class="preview hidden">
+      <span id="preview-num" class="preview-num"></span>
+      <span id="preview-badge" class="badge"></span>
+    </div>
+
+    <div style="margin-bottom:12px">
+      <label class="label">Date & Time</label>
+      <input type="datetime-local" id="datetime">
+    </div>
+
+    <div style="margin-bottom:16px">
+      <label class="label">Notes (optional)</label>
+      <textarea id="notes" placeholder="e.g. after coffee, felt dizzy, took meds..." rows="2"></textarea>
+    </div>
+
+    <div class="btns">
+      <button class="btn btn-pri" id="save-btn" disabled onclick="saveReading()">Save Reading</button>
+      <button class="btn btn-out" onclick="clearForm()">Clear</button>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY TAB -->
+<div id="tab-history" class="hidden">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="sec-title">All Readings</div>
+      <span id="total-count" style="font-size:12px;color:#8A8778"></span>
+    </div>
+    <div id="readings-list"></div>
+  </div>
+</div>
+
+<!-- CHARTS TAB -->
+<div id="tab-charts" class="hidden">
+  <div class="card">
+    <div class="sec-title">Trends</div>
+    <div id="charts-empty" class="empty">Need at least 2 readings for charts</div>
+    <div id="charts-content" class="hidden">
+      <div class="chart-wrap">
+        <div class="chart-label">Blood Pressure</div>
+        <canvas id="bp-chart"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-label">Pulse</div>
+        <canvas id="pulse-chart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  Normal: &lt;120/80 · Elevated: 120–129/&lt;80<br>
+  High Stage 1: 130–139/80–89 · Stage 2: ≥140/≥90
+</div>
+
+<script>
+// ── Data ──
+function getReadings() {
+  try { return JSON.parse(localStorage.getItem("bp-readings") || "[]"); }
+  catch { return []; }
+}
+function setReadings(arr) {
+  localStorage.setItem("bp-readings", JSON.stringify(arr));
+}
+
+function classify(sys, dia) {
+  const s = +sys, d = +dia;
+  if (!s || !d) return { label: "—", color: "#8A8778", bg: "#8A877818" };
+  if (s < 120 && d < 80) return { label: "Normal", color: "#3A7D5C", bg: "#3A7D5C18" };
+  if (s < 130 && d < 80) return { label: "Elevated", color: "#D4873C", bg: "#D4873C18" };
+  if (s < 140 || d < 90) return { label: "High – Stage 1", color: "#D4573B", bg: "#D4573B18" };
+  return { label: "High – Stage 2", color: "#C42B2B", bg: "#C42B2B18" };
+}
+
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+function fmtTime(iso) {
+  return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+function fmtShort(iso) {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+function localNow() {
+  const n = new Date();
+  return new Date(n.getTime() - n.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+// ── Tabs ──
+function showTab(name) {
+  document.querySelectorAll(".tab").forEach((t, i) => {
+    t.classList.toggle("active", ["add","history","charts"][i] === name);
+  });
+  ["add","history","charts"].forEach(t => {
+    document.getElementById("tab-" + t).classList.toggle("hidden", t !== name);
+  });
+  if (name === "history") renderHistory();
+  if (name === "charts") renderCharts();
+}
+
+// ── Form ──
+function updatePreview() {
+  const sys = document.getElementById("systolic").value;
+  const dia = document.getElementById("diastolic").value;
+  const preview = document.getElementById("preview");
+  const btn = document.getElementById("save-btn");
+  if (sys && dia) {
+    const c = classify(sys, dia);
+    document.getElementById("preview-num").textContent = sys + "/" + dia;
+    document.getElementById("preview-num").style.color = c.color;
+    document.getElementById("preview-badge").textContent = c.label;
+    document.getElementById("preview-badge").style.color = c.color;
+    document.getElementById("preview-badge").style.background = c.bg;
+    preview.style.background = c.bg;
+    preview.style.border = "1px solid " + c.color + "30";
+    preview.classList.remove("hidden");
+    btn.disabled = false;
+  } else {
+    preview.classList.add("hidden");
+    btn.disabled = true;
+  }
+}
+
+function clearForm() {
+  document.getElementById("systolic").value = "";
+  document.getElementById("diastolic").value = "";
+  document.getElementById("pulse").value = "";
+  document.getElementById("datetime").value = localNow();
+  document.getElementById("notes").value = "";
+  document.getElementById("scan-msg").classList.add("hidden");
+  document.getElementById("progress").classList.add("hidden");
+  updatePreview();
+}
+
+function saveReading() {
+  const sys = document.getElementById("systolic").value;
+  const dia = document.getElementById("diastolic").value;
+  if (!sys || !dia) return;
+  const entry = {
+    id: Date.now().toString(),
+    systolic: sys,
+    diastolic: dia,
+    pulse: document.getElementById("pulse").value,
+    datetime: document.getElementById("datetime").value,
+    notes: document.getElementById("notes").value,
+  };
+  const readings = getReadings();
+  readings.unshift(entry);
+  setReadings(readings);
+  clearForm();
+  showTab("history");
+}
+
+// ── OCR ──
+function showScanMsg(text, type) {
+  const el = document.getElementById("scan-msg");
+  el.textContent = text;
+  el.className = "scan-msg " + type;
+  el.classList.remove("hidden");
+}
+
+function showProgress(pct) {
+  const bar = document.getElementById("progress");
+  const fill = document.getElementById("progress-fill");
+  bar.classList.remove("hidden");
+  fill.style.width = pct + "%";
+}
+
+async function handlePhoto(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  input.value = "";
+
+  showScanMsg("Reading monitor...", "scanning");
+  showProgress(20);
+
+  try {
+    // Use simpler recognize API with timeout
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Timed out after 30s. Try better lighting or type manually.")), 30000)
+    );
+
+    showProgress(40);
+
+    const ocrResult = Tesseract.recognize(file, "eng", {
+      logger: (m) => {
+        if (m.status === "recognizing text" && m.progress) {
+          showProgress(40 + Math.round(m.progress * 50));
+          showScanMsg("Reading... " + Math.round(m.progress * 100) + "%", "scanning");
+        } else if (m.status) {
+          showScanMsg(m.status + "...", "scanning");
+        }
+      }
+    });
+
+    const { data } = await Promise.race([ocrResult, timeout]);
+    showProgress(100);
+
+    const text = data.text;
+    const numbers = text.match(/\d+/g)?.map(Number).filter(n => n > 0 && n < 300) || [];
+
+    if (numbers.length >= 2) {
+      const bpNums = numbers.filter(n => n >= 40 && n <= 250);
+
+      if (bpNums.length >= 2) {
+        const sorted = [...bpNums].sort((a, b) => b - a);
+        const sys = sorted[0];
+        const dia = sorted[1];
+        const pulseNums = numbers.filter(n => n !== sys && n !== dia && n >= 30 && n <= 200);
+
+        document.getElementById("systolic").value = sys;
+        document.getElementById("diastolic").value = dia;
+        if (pulseNums.length > 0) {
+          document.getElementById("pulse").value = pulseNums[0];
+        }
+        updatePreview();
+        showScanMsg("Got it! Check the numbers and save.", "success");
+      } else {
+        showScanMsg("Found numbers but couldn't identify BP values. Raw: " + text.slice(0, 100), "error");
+      }
+    } else {
+      showScanMsg("Couldn't read numbers. Try better lighting or type manually. Raw: " + text.slice(0, 80), "error");
+    }
+  } catch (err) {
+    showScanMsg(err.message || "OCR error", "error");
+  }
+
+  document.getElementById("progress").classList.add("hidden");
+}
+
+// ── History ──
+function renderHistory() {
+  const readings = getReadings().sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+  document.getElementById("total-count").textContent = readings.length + " total";
+  const list = document.getElementById("readings-list");
+
+  if (readings.length === 0) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div>No readings yet!</div></div>';
+    return;
+  }
+
+  list.innerHTML = readings.map(r => {
+    const c = classify(r.systolic, r.diastolic);
+    return `<div class="reading">
+      <div class="reading-top">
+        <span class="reading-date">${fmtDate(r.datetime)} · ${fmtTime(r.datetime)}</span>
+        <span class="badge" style="color:${c.color};background:${c.bg}">${c.label}</span>
+      </div>
+      <div class="reading-vals">
+        <div>
+          <span class="reading-bp" style="color:${c.color}">${r.systolic}</span>
+          <span class="reading-slash"> / </span>
+          <span class="reading-bp" style="color:${c.color}">${r.diastolic}</span>
+          <span class="reading-unit">mmHg</span>
+        </div>
+        ${r.pulse ? `<div><span class="reading-pulse">${r.pulse}</span><span class="reading-unit">bpm</span></div>` : ""}
+        <button class="reading-del" onclick="deleteReading('${r.id}')">×</button>
+      </div>
+      ${r.notes ? `<div class="reading-notes">${r.notes.replace(/</g,"&lt;")}</div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function deleteReading(id) {
+  const readings = getReadings().filter(r => r.id !== id);
+  setReadings(readings);
+  renderHistory();
+}
+
+// ── Charts ──
+let bpChart = null, pulseChart = null;
+
+function renderCharts() {
+  const readings = getReadings().sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+
+  if (readings.length < 2) {
+    document.getElementById("charts-empty").classList.remove("hidden");
+    document.getElementById("charts-content").classList.add("hidden");
+    return;
+  }
+  document.getElementById("charts-empty").classList.add("hidden");
+  document.getElementById("charts-content").classList.remove("hidden");
+
+  const labels = readings.map(r => fmtShort(r.datetime));
+  const sysData = readings.map(r => +r.systolic);
+  const diaData = readings.map(r => +r.diastolic);
+  const pulseData = readings.map(r => r.pulse ? +r.pulse : null);
+
+  // Destroy old charts
+  if (bpChart) bpChart.destroy();
+  if (pulseChart) pulseChart.destroy();
+
+  const commonOpts = {
+    responsive: true,
+    plugins: { legend: { labels: { font: { size: 12 } } } },
+    scales: {
+      x: { ticks: { font: { size: 11 }, color: "#8A8778" } },
+      y: { ticks: { font: { size: 11 }, color: "#8A8778" } },
+    },
+  };
+
+  bpChart = new Chart(document.getElementById("bp-chart"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Systolic",
+          data: sysData,
+          borderColor: "#D4573B",
+          backgroundColor: "#D4573B33",
+          borderWidth: 2.5,
+          pointRadius: 4,
+          tension: 0.3,
+        },
+        {
+          label: "Diastolic",
+          data: diaData,
+          borderColor: "#3A7D5C",
+          backgroundColor: "#3A7D5C33",
+          borderWidth: 2.5,
+          pointRadius: 4,
+          tension: 0.3,
+        },
+      ],
+    },
+    options: {
+      ...commonOpts,
+      plugins: {
+        ...commonOpts.plugins,
+        annotation: undefined,
+      },
+    },
+  });
+
+  pulseChart = new Chart(document.getElementById("pulse-chart"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Pulse",
+        data: pulseData,
+        borderColor: "#D4A03C",
+        backgroundColor: "#D4A03C33",
+        borderWidth: 2.5,
+        pointRadius: 4,
+        tension: 0.3,
+        spanGaps: true,
+      }],
+    },
+    options: commonOpts,
+  });
+}
+
+// ── Init ──
+document.getElementById("datetime").value = localNow();
+</script>
+</body>
+</html>
