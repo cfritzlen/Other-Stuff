@@ -1530,10 +1530,11 @@ async function sendReminderSMS(message) {
   var s = getTwilioSettings();
   if (!s.url || !s.to) return false;
   try {
+    var body = new URLSearchParams({ to: s.to, message: message });
     var res = await fetch(s.url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to: s.to, message: message })
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString()
     });
     return res.ok;
   } catch(e) { return false; }
