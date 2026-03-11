@@ -206,6 +206,7 @@
   <button class="tab" onclick="showTab('meds')">&#128138; Meds</button>
   <button class="tab" onclick="showTab('sleep')">Sleep</button>
   <button class="tab" onclick="showTab('charts')">Charts</button>
+  <button class="tab" onclick="showTab('admin')" style="color:#B07030;font-size:16px">&#9881;</button>
 </div>
 
 <div id="tab-add">
@@ -346,20 +347,32 @@
 
 <div id="tab-meds" class="hidden">
 
-  <!-- Today's status -->
   <div class="card">
-    <div class="sec-title">&#128138; Today's Meds</div>
-    <div id="meds-today"><div class="empty"><div class="empty-icon">&#128138;</div><div>Loading...</div></div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="sec-title">&#128138; Today's Meds</div>
+      <span id="meds-date" style="font-size:12px;color:#8A8778"></span>
+    </div>
+    <div id="meds-today"></div>
   </div>
 
-  <!-- QR Codes -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="sec-title">Today's Log</div>
+      <span id="med-log-count" style="font-size:12px;color:#8A8778"></span>
+    </div>
+    <div id="med-log-list"></div>
+  </div>
+
+</div>
+
+<div id="tab-admin" class="hidden">
+
   <div class="card">
     <div class="sec-title">&#128247; Bottle QR Codes</div>
-    <p style="font-size:13px;color:#555549;margin-bottom:14px;line-height:1.5">Print these &amp; stick on each bottle. Scan with iPhone Camera → dose is logged automatically!</p>
+    <p style="font-size:13px;color:#555549;margin-bottom:14px;line-height:1.5">Print &amp; stick on each bottle. iPhone Camera scan → dose logged!</p>
     <div id="meds-qr-list"></div>
   </div>
 
-  <!-- Add / Edit Med -->
   <div class="card">
     <div class="sec-title">&#10133; Add / Edit Med</div>
     <div style="margin-bottom:12px">
@@ -367,10 +380,9 @@
       <input type="text" id="med-name" placeholder="e.g. Lisinopril 10mg">
     </div>
     <div style="margin-bottom:16px">
-      <label class="label">Dose Time(s) — for tracking only</label>
+      <label class="label">Dose Time(s)</label>
       <div id="med-times-list"></div>
       <button onclick="addDoseTimeField('')" style="margin-top:8px;padding:7px 16px;border-radius:8px;border:1.5px solid #3A7D5C;color:#3A7D5C;background:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">+ Add Time</button>
-      <div style="font-size:11px;color:#8A8778;margin-top:6px">Reminders use the schedule below, not these times</div>
     </div>
     <input type="hidden" id="med-edit-id">
     <div class="btns">
@@ -379,11 +391,10 @@
     </div>
   </div>
 
-  <!-- Twilio reminders - hardcoded, no user setup needed -->
   <div class="card">
     <div class="sec-title">&#128242; Reminders</div>
     <div style="background:#FAFAF7;border:1px solid #EAE7E0;border-radius:10px;padding:12px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;color:#2D5F46;margin-bottom:8px">&#128197; Reminder Schedule (only if meds outstanding)</div>
+      <div style="font-size:12px;font-weight:700;color:#2D5F46;margin-bottom:8px">&#128197; Schedule (fires only if meds outstanding)</div>
       <div style="font-size:12px;color:#555549;margin-bottom:6px">&#128188; <strong>Weekdays</strong> — 4:00 AM &middot; 4:30 PM &middot; 6:00 PM &middot; 8:00 PM</div>
       <div style="font-size:12px;color:#555549">&#127774; <strong>Weekends</strong> — 9:30 AM &middot; 12:30 PM &middot; 3:30 PM &middot; 6:30 PM &middot; 9:00 PM</div>
     </div>
@@ -393,15 +404,6 @@
       <button class="btn btn-out" onclick="checkAndSendReminders(false)" style="font-size:13px">Check Now</button>
     </div>
     <div id="twilio-status" style="margin-top:8px;font-size:12px;font-weight:600"></div>
-  </div>
-
-  <!-- Med log history -->
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div class="sec-title">Log History</div>
-      <span id="med-log-count" style="font-size:12px;color:#8A8778"></span>
-    </div>
-    <div id="med-log-list"></div>
   </div>
 
 </div>
@@ -524,7 +526,7 @@ function localNow() {
 }
 
 function showTab(name) {
-  var tabNames = ["add","history","meds","sleep","charts"];
+  var tabNames = ["add","history","meds","sleep","charts","admin"];
   document.querySelectorAll(".tab").forEach(function(t, i) {
     t.classList.toggle("active", tabNames[i] === name);
   });
@@ -533,6 +535,7 @@ function showTab(name) {
   });
   if (name === "history") { loadReadings().then(renderHistory); }
   if (name === "meds") { fetchMedLogs().then(function() { refreshMedsTab(); }); }
+  if (name === "admin") { fetchMedLogs().then(function() { generateQRCodes(); clearMedForm(); updateWindowStatus(); }); }
   if (name === "sleep") { loadSleepEntries().then(renderSleepHistory); }
   if (name === "charts") { loadReadings().then(function() { loadSleepEntries().then(function() { renderStats(); renderCharts(); }); }); }
 }
@@ -1311,6 +1314,7 @@ function editMed(id) {
   document.getElementById("med-times-list").innerHTML = "";
   (med.dose_times || []).forEach(function(t) { addDoseTimeField(t); });
   document.getElementById("med-edit-id").value = id;
+  showTab("admin");
   document.getElementById("med-name").scrollIntoView({ behavior: "smooth" });
 }
 
@@ -1362,31 +1366,56 @@ function getTodayLogCount(medId) {
 async function renderMedsToday() {
   var meds = await getMeds();
   var el = document.getElementById("meds-today");
+  var dateEl = document.getElementById("meds-date");
+  if (dateEl) dateEl.textContent = new Date().toLocaleDateString("en-US", { weekday:"short", month:"short", day:"numeric" });
+
   if (!meds.length) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon">&#128138;</div><div>No meds set up yet — add one below!</div></div>';
+    el.innerHTML = '<div class="empty"><div class="empty-icon">&#128138;</div><div>No meds set up yet</div></div>';
     return;
   }
+
+  var allDone = meds.every(function(med) {
+    return getTodayLogCount(med.id) >= (med.dose_times || []).length;
+  });
+
   var html = "";
+
+  // Big all-done banner
+  if (allDone) {
+    html += '<div style="text-align:center;padding:20px 0 10px">' +
+      '<div style="font-size:56px;margin-bottom:8px">&#9989;</div>' +
+      '<div style="font-size:20px;font-weight:800;color:#3A7D5C">All meds taken!</div>' +
+      '<div style="font-size:13px;color:#8A8778;margin-top:4px">Great job today &#127881;</div>' +
+    '</div><hr style="border:none;border-top:1px solid #EAE7E0;margin:16px 0">';
+  }
+
   meds.forEach(function(med) {
     var logsToday = getTodayLogCount(med.id);
     var needed = (med.dose_times || []).length;
     var done = logsToday >= needed;
-    var color = done ? "#3A7D5C" : "#D4573B";
-    var icon = done ? "&#9989;" : "&#9888;&#65039;";
-    var statusText = done ? "All doses logged today" : (logsToday + " of " + needed + " logged — next reminder: " + getNextReminderStr());
-    html += '<div class="med-status-card">' +
-      '<div style="flex:1;min-width:0">' +
-        '<div style="font-size:15px;font-weight:700;color:' + color + '">' + icon + ' ' + med.name + '</div>' +
-        '<div style="font-size:11px;color:#8A8778;margin-top:3px">' + (med.dose_times || []).join(", ") + '</div>' +
-        '<div style="font-size:11px;color:' + color + ';margin-top:2px">' + statusText + '</div>' +
-      '</div>' +
-      '<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">' +
-        (!done ? '<button class="med-log-btn" onclick="logMedNow(\'' + med.id + '\',\'' + med.name.replace(/'/g, "").replace(/"/g, "") + '\')">Log Now</button>' : '<span class="med-done-badge">&#10003; Done</span>') +
-        '<button onclick="editMed(\'' + med.id + '\')" style="background:none;border:none;color:#8A8778;font-size:12px;cursor:pointer;padding:0">edit</button>' +
-        '<button onclick="deleteMedDef(\'' + med.id + '\')" style="background:none;border:none;color:#D4573B;font-size:12px;cursor:pointer;padding:0">delete</button>' +
-      '</div>' +
-    '</div>';
+
+    if (done) {
+      // Logged — green, clear, no button
+      html += '<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;background:#D4E8DB;border:1.5px solid #3A7D5C;margin-bottom:8px">' +
+        '<div style="font-size:28px;line-height:1">&#9989;</div>' +
+        '<div style="flex:1">' +
+          '<div style="font-size:16px;font-weight:700;color:#2D5F46">' + med.name + '</div>' +
+          '<div style="font-size:12px;color:#3A7D5C;margin-top:2px;font-weight:600">Logged today &#10003;</div>' +
+        '</div>' +
+      '</div>';
+    } else {
+      // Not logged — prominent Log Now button
+      html += '<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;background:#FFF;border:1.5px solid #EAE7E0;margin-bottom:8px">' +
+        '<div style="font-size:28px;line-height:1">&#128138;</div>' +
+        '<div style="flex:1">' +
+          '<div style="font-size:16px;font-weight:700;color:#1A1A1A">' + med.name + '</div>' +
+          '<div style="font-size:12px;color:#8A8778;margin-top:2px">Next reminder: ' + getNextReminderStr() + '</div>' +
+        '</div>' +
+        '<button class="med-log-btn" style="padding:10px 18px;font-size:14px" onclick="logMedNow(\'' + med.id + '\',\'' + med.name.replace(/'/g, "").replace(/"/g, "") + '\')">&#10003; Log</button>' +
+      '</div>';
+    }
   });
+
   el.innerHTML = html;
 }
 
