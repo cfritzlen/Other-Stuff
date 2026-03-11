@@ -1571,7 +1571,7 @@ async function sendReminderSMS(message) {
 async function sendTestReminder() {
   var el = document.getElementById("twilio-status");
   el.textContent = "Sending..."; el.style.color = "#8A8778";
-  var result = await sendReminderSMS("💊 BP Tracker test — reminders are working!");
+  var result = await sendReminderSMS("💊 Med Tracker test — reminders are working! I LOVE YOU!");
   if (result.ok) {
     el.textContent = "✅ Test text sent!";
     el.style.color = "#3A7D5C";
