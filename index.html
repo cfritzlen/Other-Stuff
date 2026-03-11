@@ -366,31 +366,11 @@
       <label class="label">Med Name &amp; Dose</label>
       <input type="text" id="med-name" placeholder="e.g. Lisinopril 10mg">
     </div>
-    <div style="margin-bottom:12px">
-      <label class="label">Dose Time(s)</label>
+    <div style="margin-bottom:16px">
+      <label class="label">Dose Time(s) — for tracking only</label>
       <div id="med-times-list"></div>
       <button onclick="addDoseTimeField('')" style="margin-top:8px;padding:7px 16px;border-radius:8px;border:1.5px solid #3A7D5C;color:#3A7D5C;background:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">+ Add Time</button>
-    </div>
-    <div style="margin-bottom:12px">
-      <label class="label">&#128682; Work Blackout (no reminders during these hours)</label>
-      <div class="row" style="margin-bottom:0">
-        <div class="field">
-          <label class="label">From</label>
-          <input type="time" id="med-blackout-start">
-        </div>
-        <div class="field">
-          <label class="label">To</label>
-          <input type="time" id="med-blackout-end">
-        </div>
-      </div>
-    </div>
-    <div style="margin-bottom:16px">
-      <label class="label">Send reminder if not taken after</label>
-      <select id="med-reminder-delay">
-        <option value="30">30 minutes</option>
-        <option value="60" selected>1 hour</option>
-        <option value="120">2 hours</option>
-      </select>
+      <div style="font-size:11px;color:#8A8778;margin-top:6px">Reminders use the schedule below, not these times</div>
     </div>
     <input type="hidden" id="med-edit-id">
     <div class="btns">
@@ -402,15 +382,22 @@
   <!-- Twilio settings -->
   <div class="card">
     <div class="sec-title">&#128242; Twilio Reminders</div>
-    <p style="font-size:13px;color:#555549;margin-bottom:12px;line-height:1.5">Set up your Twilio Function URL to get a text when meds are overdue.</p>
     <div style="margin-bottom:10px">
       <label class="label">Twilio Function URL</label>
       <input type="url" id="twilio-url" placeholder="https://your-service.twil.io/send-reminder" oninput="saveTwilioSettings()">
     </div>
-    <div style="margin-bottom:12px">
+    <div style="margin-bottom:16px">
       <label class="label">Send Reminder To (his phone)</label>
       <input type="tel" id="twilio-to" placeholder="+12125551234" oninput="saveTwilioSettings()">
     </div>
+
+    <div style="background:#FAFAF7;border:1px solid #EAE7E0;border-radius:10px;padding:12px;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:700;color:#2D5F46;margin-bottom:8px">&#128197; Reminder Schedule (only if meds outstanding)</div>
+      <div style="font-size:12px;color:#555549;margin-bottom:6px">&#128188; <strong>Weekdays</strong> — 4:00 AM &middot; 4:30 PM &middot; 6:00 PM &middot; 8:00 PM</div>
+      <div style="font-size:12px;color:#555549">&#127774; <strong>Weekends</strong> — 9:30 AM &middot; 12:30 PM &middot; 3:30 PM &middot; 6:30 PM &middot; 9:00 PM</div>
+    </div>
+
+    <div id="twilio-window-status" style="font-size:12px;font-weight:600;padding:4px 0 10px"></div>
     <div class="btns">
       <button class="btn btn-out" onclick="sendTestReminder()" style="font-size:13px">Send Test Text</button>
       <button class="btn btn-out" onclick="checkAndSendReminders(false)" style="font-size:13px">Check &amp; Send Now</button>
@@ -576,7 +563,7 @@ function showTab(name) {
     document.getElementById("tab-" + t).classList.toggle("hidden", t !== name);
   });
   if (name === "history") { loadReadings().then(renderHistory); }
-  if (name === "meds") { fetchMedLogs().then(function() { renderMedsTab(); generateQRCodes(); }); }
+  if (name === "meds") { fetchMedLogs().then(function() { refreshMedsTab(); }); }
   if (name === "sleep") { loadSleepEntries().then(renderSleepHistory); }
   if (name === "charts") { loadReadings().then(function() { loadSleepEntries().then(function() { renderStats(); renderCharts(); }); }); }
 }
@@ -1205,12 +1192,35 @@ async function handleSleepPhoto(input) {
   document.getElementById("sleep-progress").classList.add("hidden");
 }
 
-// ── Meds: Local Storage ──
-function getMeds() {
-  try { return JSON.parse(localStorage.getItem("bp-meds") || "[]"); } catch(e) { return []; }
+// ── Meds: Supabase ──
+var medsCache = null;
+
+async function getMeds() {
+  try {
+    var res = await fetch(SUPA_URL + "/rest/v1/meds?order=created_at.asc", { headers: SUPA_HEADERS });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    medsCache = await res.json();
+    return medsCache;
+  } catch(e) { return medsCache || []; }
 }
-function setMeds(meds) {
-  try { localStorage.setItem("bp-meds", JSON.stringify(meds)); } catch(e) {}
+
+async function insertMedDef(med) {
+  var res = await fetch(SUPA_URL + "/rest/v1/meds", {
+    method: "POST", headers: SUPA_HEADERS, body: JSON.stringify(med)
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return await res.json();
+}
+
+async function updateMedDef(id, med) {
+  var res = await fetch(SUPA_URL + "/rest/v1/meds?id=eq." + id, {
+    method: "PATCH", headers: SUPA_HEADERS, body: JSON.stringify(med)
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+}
+
+async function deleteMedDefDB(id) {
+  await fetch(SUPA_URL + "/rest/v1/meds?id=eq." + id, { method: "DELETE", headers: SUPA_HEADERS });
 }
 function getTwilioSettings() {
   try { return JSON.parse(localStorage.getItem("bp-twilio") || "{}"); } catch(e) { return {}; }
@@ -1223,7 +1233,58 @@ function saveTwilioSettings() {
   try { localStorage.setItem("bp-twilio", JSON.stringify(s)); } catch(e) {}
 }
 
-// ── Med Logs: Supabase ──
+// ── Fixed Reminder Schedule ──
+var WEEKDAY_TIMES = ["04:00", "16:30", "18:00", "20:00"];
+var WEEKEND_TIMES = ["09:30", "12:30", "15:30", "18:30", "21:00"];
+
+function getTodaySchedule() {
+  var dow = new Date().getDay(); // 0=Sun, 6=Sat
+  return (dow === 0 || dow === 6) ? WEEKEND_TIMES : WEEKDAY_TIMES;
+}
+
+function fmtScheduleTime(t) {
+  var p = t.split(":");
+  var h = parseInt(p[0]), m = parseInt(p[1]);
+  var ampm = h >= 12 ? "PM" : "AM";
+  var h12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+  return h12 + ":" + String(m).padStart(2, "0") + " " + ampm;
+}
+
+function getNextReminderStr() {
+  var now = new Date();
+  var curMin = now.getHours() * 60 + now.getMinutes();
+  var schedule = getTodaySchedule();
+  for (var i = 0; i < schedule.length; i++) {
+    var p = schedule[i].split(":");
+    var slotMin = parseInt(p[0]) * 60 + parseInt(p[1]);
+    if (slotMin > curMin) return fmtScheduleTime(schedule[i]);
+  }
+  return "tomorrow";
+}
+
+function updateWindowStatus() {
+  var el = document.getElementById("twilio-window-status");
+  if (!el) return;
+  var dow = new Date().getDay();
+  var isWeekend = (dow === 0 || dow === 6);
+  el.textContent = (isWeekend ? "☀️ Weekend" : "💼 Weekday") + " schedule — next reminder check: " + getNextReminderStr();
+  el.style.color = "#3A7D5C";
+}
+
+// isAtScheduledTime: returns the slot key "YYYY-MM-DD_HH:MM" if we're within 5 min of a scheduled time
+function getActiveScheduleSlot() {
+  var now = new Date();
+  var curMin = now.getHours() * 60 + now.getMinutes();
+  var schedule = getTodaySchedule();
+  for (var i = 0; i < schedule.length; i++) {
+    var p = schedule[i].split(":");
+    var slotMin = parseInt(p[0]) * 60 + parseInt(p[1]);
+    if (curMin >= slotMin && curMin < slotMin + 5) {
+      return todayStr() + "_" + schedule[i];
+    }
+  }
+  return null;
+}
 var medLogs = [];
 
 async function fetchMedLogs() {
@@ -1271,27 +1332,22 @@ function addDoseTimeField(val) {
 function clearMedForm() {
   document.getElementById("med-name").value = "";
   document.getElementById("med-times-list").innerHTML = "";
-  document.getElementById("med-blackout-start").value = "";
-  document.getElementById("med-blackout-end").value = "";
-  document.getElementById("med-reminder-delay").value = "60";
   document.getElementById("med-edit-id").value = "";
   addDoseTimeField("");
 }
 
 function editMed(id) {
-  var med = getMeds().find(function(m) { return m.id === id; });
+  var meds = medsCache || [];
+  var med = meds.find(function(m) { return m.id === id; });
   if (!med) return;
   document.getElementById("med-name").value = med.name;
   document.getElementById("med-times-list").innerHTML = "";
-  (med.doseTimes || []).forEach(function(t) { addDoseTimeField(t); });
-  document.getElementById("med-blackout-start").value = med.blackoutStart || "";
-  document.getElementById("med-blackout-end").value = med.blackoutEnd || "";
-  document.getElementById("med-reminder-delay").value = med.reminderDelay || 60;
+  (med.dose_times || []).forEach(function(t) { addDoseTimeField(t); });
   document.getElementById("med-edit-id").value = id;
   document.getElementById("med-name").scrollIntoView({ behavior: "smooth" });
 }
 
-function saveMed() {
+async function saveMed() {
   var name = (document.getElementById("med-name").value || "").trim();
   if (!name) { alert("Enter a med name"); return; }
   var times = [];
@@ -1299,52 +1355,45 @@ function saveMed() {
     if (inp.value) times.push(inp.value);
   });
   if (!times.length) { alert("Add at least one dose time"); return; }
-  var meds = getMeds();
-  var editId = document.getElementById("med-edit-id").value;
   var medObj = {
     name: name,
-    doseTimes: times,
-    blackoutStart: document.getElementById("med-blackout-start").value,
-    blackoutEnd: document.getElementById("med-blackout-end").value,
-    reminderDelay: parseInt(document.getElementById("med-reminder-delay").value) || 60
+    dose_times: times
   };
-  if (editId) {
-    var idx = meds.findIndex(function(m) { return m.id === editId; });
-    if (idx >= 0) { meds[idx] = Object.assign(meds[idx], medObj); }
-  } else {
-    medObj.id = "med_" + Date.now();
-    meds.push(medObj);
+  var editId = document.getElementById("med-edit-id").value;
+  try {
+    if (editId) {
+      await updateMedDef(editId, medObj);
+    } else {
+      await insertMedDef(medObj);
+    }
+    medsCache = null;
+    clearMedForm();
+    await refreshMedsTab();
+    showBanner("&#128138; Med saved!");
+  } catch(e) {
+    alert("Could not save med: " + e.message + "\n\nMake sure you created the meds table in Supabase.");
   }
-  setMeds(meds);
-  clearMedForm();
-  renderMedsTab();
-  generateQRCodes();
-  showBanner("&#128138; Med saved!");
 }
 
-function deleteMedDef(id) {
+async function deleteMedDef(id) {
   if (!confirm("Delete this med?")) return;
-  setMeds(getMeds().filter(function(m) { return m.id !== id; }));
-  renderMedsTab();
-  generateQRCodes();
+  try {
+    await deleteMedDefDB(id);
+    medsCache = null;
+    await refreshMedsTab();
+  } catch(e) { alert("Could not delete: " + e.message); }
 }
 
 // ── Today's Status ──
-function isInBlackout(med) {
-  if (!med.blackoutStart || !med.blackoutEnd) return false;
-  var now = new Date();
-  var cur = now.getHours() * 60 + now.getMinutes();
-  var ps = med.blackoutStart.split(":"), pe = med.blackoutEnd.split(":");
-  return cur >= parseInt(ps[0]) * 60 + parseInt(ps[1]) && cur <= parseInt(pe[0]) * 60 + parseInt(pe[1]);
-}
+function isInBlackout() { return false; } // Blackout replaced by fixed schedule
 
 function getTodayLogCount(medId) {
   var today = todayStr();
   return medLogs.filter(function(l) { return l.med_id === medId && l.taken_at && l.taken_at.slice(0, 10) === today; }).length;
 }
 
-function renderMedsToday() {
-  var meds = getMeds();
+async function renderMedsToday() {
+  var meds = await getMeds();
   var el = document.getElementById("meds-today");
   if (!meds.length) {
     el.innerHTML = '<div class="empty"><div class="empty-icon">&#128138;</div><div>No meds set up yet — add one below!</div></div>';
@@ -1353,16 +1402,15 @@ function renderMedsToday() {
   var html = "";
   meds.forEach(function(med) {
     var logsToday = getTodayLogCount(med.id);
-    var needed = (med.doseTimes || []).length;
+    var needed = (med.dose_times || []).length;
     var done = logsToday >= needed;
-    var inBlackout = isInBlackout(med);
-    var color = done ? "#3A7D5C" : (inBlackout ? "#8A8778" : "#D4573B");
-    var icon = done ? "&#9989;" : (inBlackout ? "&#128682;" : "&#9888;&#65039;");
-    var statusText = done ? "All doses logged" : (inBlackout ? "Work blackout (" + med.blackoutStart + "&#8211;" + med.blackoutEnd + ")" : logsToday + " of " + needed + " logged");
+    var color = done ? "#3A7D5C" : "#D4573B";
+    var icon = done ? "&#9989;" : "&#9888;&#65039;";
+    var statusText = done ? "All doses logged today" : (logsToday + " of " + needed + " logged — next reminder: " + getNextReminderStr());
     html += '<div class="med-status-card">' +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-size:15px;font-weight:700;color:' + color + '">' + icon + ' ' + med.name + '</div>' +
-        '<div style="font-size:11px;color:#8A8778;margin-top:3px">' + (med.doseTimes || []).join(", ") + '</div>' +
+        '<div style="font-size:11px;color:#8A8778;margin-top:3px">' + (med.dose_times || []).join(", ") + '</div>' +
         '<div style="font-size:11px;color:' + color + ';margin-top:2px">' + statusText + '</div>' +
       '</div>' +
       '<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">' +
@@ -1379,13 +1427,13 @@ async function logMedNow(medId, medName) {
   var ok = await insertMedLog(medId, medName);
   if (ok) {
     showBanner("&#9989; " + medName + " logged!");
-    renderMedsTab();
+    await refreshMedsTab();
   }
 }
 
 // ── QR Code Generation ──
-function generateQRCodes() {
-  var meds = getMeds();
+async function generateQRCodes() {
+  var meds = await getMeds();
   var list = document.getElementById("meds-qr-list");
   if (!meds.length) {
     list.innerHTML = '<div class="empty" style="padding:16px 0"><div>Add meds above to generate QR codes</div></div>';
@@ -1393,11 +1441,16 @@ function generateQRCodes() {
   }
   var baseUrl = window.location.href.split("?")[0];
   list.innerHTML = meds.map(function(med) {
+    var url = baseUrl + "?log=" + med.id;
     return '<div class="qr-box">' +
       '<div style="font-size:14px;font-weight:700;color:#2D5F46;margin-bottom:10px">&#128138; ' + med.name + '</div>' +
-      '<div id="qr-' + med.id + '" style="display:inline-block"></div>' +
-      '<div style="font-size:11px;color:#8A8778;margin-top:8px;margin-bottom:8px">iPhone Camera → tap link → dose logged!</div>' +
-      '<button onclick="printQR(\'' + med.id + '\',\'' + med.name.replace(/'/g, "").replace(/"/g, "") + '\')" style="padding:6px 14px;border-radius:8px;border:1.5px solid #3A7D5C;color:#3A7D5C;background:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">&#128424; Print QR Label</button>' +
+      '<div id="qr-' + med.id + '" style="display:inline-block;vertical-align:middle"></div>' +
+      '<div style="font-size:11px;color:#8A8778;margin-top:8px;margin-bottom:4px">Scan with iPhone Camera → tap link → dose logged!</div>' +
+      '<div style="font-size:11px;background:#F0EDE6;border-radius:6px;padding:6px 10px;margin-bottom:10px;word-break:break-all;color:#555">' + url + '</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        '<button onclick="copyMedUrl(\'' + encodeURIComponent(url) + '\')" style="padding:6px 14px;border-radius:8px;border:1.5px solid #3A7D5C;color:#3A7D5C;background:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">&#128203; Copy Link</button>' +
+        '<button onclick="printQR(\'' + med.id + '\',\'' + med.name.replace(/'/g, "").replace(/"/g, "") + '\')" style="padding:6px 14px;border-radius:8px;border:1.5px solid #3A7D5C;color:#3A7D5C;background:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">&#128424; Print Label</button>' +
+      '</div>' +
     '</div>';
   }).join("");
   meds.forEach(function(med) {
@@ -1406,13 +1459,21 @@ function generateQRCodes() {
     if (container) {
       container.innerHTML = "";
       if (window.QRCode) {
-        try {
-          new window.QRCode(container, { text: url, width: 140, height: 140, colorDark: "#1A1A1A", colorLight: "#FAFAF7" });
-        } catch(e) { container.textContent = url; }
+        try { new window.QRCode(container, { text: url, width: 140, height: 140, colorDark: "#1A1A1A", colorLight: "#FAFAF7" }); }
+        catch(e) { container.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=' + encodeURIComponent(url) + '" width="140" height="140">'; }
       } else {
         container.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=' + encodeURIComponent(url) + '" width="140" height="140">';
       }
     }
+  });
+}
+
+function copyMedUrl(encodedUrl) {
+  var url = decodeURIComponent(encodedUrl);
+  navigator.clipboard.writeText(url).then(function() {
+    showBanner("&#128203; Link copied!");
+  }).catch(function() {
+    prompt("Copy this link:", url);
   });
 }
 
@@ -1425,20 +1486,26 @@ function printQR(medId, medName) {
     "<style>body{font-family:-apple-system,sans-serif;text-align:center;padding:40px;background:#fff}" +
     "h2{color:#2D5F46;font-size:22px;margin-bottom:6px}p{color:#555;font-size:14px;margin-bottom:20px}" +
     "img{border:2px solid #EAE7E0;border-radius:8px;padding:10px}" +
-    ".footer{margin-top:16px;font-size:11px;color:#8A8778}" +
+    ".url{font-size:10px;color:#8A8778;margin-top:8px;word-break:break-all;max-width:260px;margin-left:auto;margin-right:auto}" +
     "@media print{button{display:none}}</style></head><body>" +
     "<h2>&#128138; " + medName + "</h2>" +
     "<p>Scan with iPhone Camera to log dose</p>" +
     '<img src="' + qrSrc + '" width="220" height="220">' +
-    "<div class='footer'>BP Tracker &middot; Tap link that appears to log your dose</div>" +
+    "<div class='url'>" + url + "</div>" +
     "<br><button onclick='window.print()' style='margin-top:16px;padding:10px 24px;border-radius:8px;border:none;background:#3A7D5C;color:#fff;font-size:15px;cursor:pointer'>&#128424; Print</button>" +
     "</body></html>");
   w.document.close();
 }
 
 // ── Render Meds Tab ──
-function renderMedsTab() {
-  renderMedsToday();
+async function refreshMedsTab() {
+  await renderMedsToday();
+  renderMedLogHistory();
+  await generateQRCodes();
+}
+
+async function renderMedsTab() {
+  await renderMedsToday();
   renderMedLogHistory();
 }
 
@@ -1467,17 +1534,17 @@ async function checkQRLog() {
   var medId = params.get("log");
   if (!medId) return;
   window.history.replaceState({}, "", window.location.pathname);
-  var meds = getMeds();
-  var med = meds.find(function(m) { return m.id === medId; });
+  var meds = await getMeds();
+  var med = meds.find(function(m) { return String(m.id) === String(medId); });
   if (!med) {
-    alert("Med not found. Make sure you opened this on the right device.");
+    alert("Med not found. Make sure this is the right app URL.");
     return;
   }
   await fetchMedLogs();
-  var ok = await insertMedLog(medId, med.name);
+  var ok = await insertMedLog(med.id, med.name);
   if (ok) {
     showTab("meds");
-    renderMedsTab();
+    await refreshMedsTab();
     showBanner("&#9989; " + med.name + " logged!");
   }
 }
@@ -1514,7 +1581,6 @@ async function sendTestReminder() {
 }
 
 async function checkAndSendReminders(auto) {
-  var meds = getMeds();
   var s = getTwilioSettings();
   if (!s.url || !s.to) {
     if (!auto) {
@@ -1524,33 +1590,52 @@ async function checkAndSendReminders(auto) {
     }
     return;
   }
-  var now = new Date();
-  var curMin = now.getHours() * 60 + now.getMinutes();
-  var sent = 0;
-  for (var i = 0; i < meds.length; i++) {
-    var med = meds[i];
-    if (isInBlackout(med)) continue;
-    var logsToday = getTodayLogCount(med.id);
-    var needed = (med.doseTimes || []).length;
-    if (logsToday >= needed) continue;
-    var delay = med.reminderDelay || 60;
-    for (var j = 0; j < (med.doseTimes || []).length; j++) {
-      var t = med.doseTimes[j];
-      var parts = t.split(":");
-      var doseMin = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-      if (curMin >= doseMin + delay) {
-        var key = "reminded_" + med.id + "_" + todayStr() + "_" + t;
-        if (!auto || !sessionStorage.getItem(key)) {
-          var ok = await sendReminderSMS("&#128138; Reminder: " + med.name + " was due at " + t + ". Time to take it!");
-          if (ok) { try { sessionStorage.setItem(key, "1"); } catch(e) {} sent++; }
-        }
-      }
-    }
+
+  // Auto mode: only fire at scheduled times (within 5-min window)
+  var slot = getActiveScheduleSlot();
+  if (auto && !slot) return;
+
+  // If auto, check we haven't already sent for this slot
+  if (auto && slot) {
+    var slotKey = "sched_sent_" + slot;
+    try { if (sessionStorage.getItem(slotKey)) return; } catch(e) {}
   }
+
+  // Fetch fresh logs so we have up-to-date status
+  await fetchMedLogs();
+  var meds = await getMeds();
+
+  // Find any meds not yet fully logged today
+  var outstanding = meds.filter(function(med) {
+    return getTodayLogCount(med.id) < (med.dose_times || []).length;
+  });
+
+  var sent = 0;
+  if (outstanding.length > 0) {
+    var names = outstanding.map(function(m) { return m.name; }).join(", ");
+    var msg = "💊 Reminder: " + names + (outstanding.length === 1 ? " hasn't" : " haven't") + " been logged yet today. Time to take " + (outstanding.length === 1 ? "it" : "them") + "!";
+    var ok = await sendReminderSMS(msg);
+    if (ok) {
+      sent = outstanding.length;
+      if (auto && slot) { try { sessionStorage.setItem("sched_sent_" + slot, "1"); } catch(e) {} }
+    }
+  } else if (auto && slot) {
+    // Mark slot done even if no meds outstanding (all taken, no text needed)
+    try { sessionStorage.setItem("sched_sent_" + slot, "1"); } catch(e) {}
+  }
+
   if (!auto) {
     var el = document.getElementById("twilio-status");
-    el.textContent = sent > 0 ? "&#9989; " + sent + " reminder(s) sent!" : "&#10004; All meds on track — no reminders needed";
-    el.style.color = sent > 0 ? "#D4873C" : "#3A7D5C";
+    if (outstanding.length === 0) {
+      el.textContent = "✅ All meds logged — no reminder needed!";
+      el.style.color = "#3A7D5C";
+    } else if (sent > 0) {
+      el.textContent = "✅ Reminder sent for: " + outstanding.map(function(m) { return m.name; }).join(", ");
+      el.style.color = "#D4873C";
+    } else {
+      el.textContent = "❌ Failed to send — check your Twilio URL";
+      el.style.color = "#D4573B";
+    }
   }
 }
 
