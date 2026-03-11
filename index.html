@@ -1643,7 +1643,7 @@ async function checkAndSendReminders(auto) {
       el.textContent = "✅ Reminder sent for: " + outstanding.map(function(m) { return m.name; }).join(", ");
       el.style.color = "#D4873C";
     } else {
-      el.textContent = "❌ Failed to send — check your Twilio URL";
+      el.textContent = "❌ Failed: " + (result.error || "unknown error");
       el.style.color = "#D4573B";
     }
   }
