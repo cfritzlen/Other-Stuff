@@ -379,51 +379,20 @@
     </div>
   </div>
 
-  <!-- Twilio settings -->
+  <!-- Twilio reminders - hardcoded, no user setup needed -->
   <div class="card">
-    <div class="sec-title">&#128242; Twilio Reminders</div>
-    <div style="margin-bottom:10px">
-      <label class="label">Twilio Function URL</label>
-      <input type="url" id="twilio-url" placeholder="https://your-service.twil.io/send-reminder" oninput="saveTwilioSettings()">
-    </div>
-    <div style="margin-bottom:16px">
-      <label class="label">Send Reminder To (his phone)</label>
-      <input type="tel" id="twilio-to" placeholder="+12125551234" oninput="saveTwilioSettings()">
-    </div>
-
-    <div style="background:#FAFAF7;border:1px solid #EAE7E0;border-radius:10px;padding:12px;margin-bottom:8px">
+    <div class="sec-title">&#128242; Reminders</div>
+    <div style="background:#FAFAF7;border:1px solid #EAE7E0;border-radius:10px;padding:12px;margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:#2D5F46;margin-bottom:8px">&#128197; Reminder Schedule (only if meds outstanding)</div>
       <div style="font-size:12px;color:#555549;margin-bottom:6px">&#128188; <strong>Weekdays</strong> — 4:00 AM &middot; 4:30 PM &middot; 6:00 PM &middot; 8:00 PM</div>
       <div style="font-size:12px;color:#555549">&#127774; <strong>Weekends</strong> — 9:30 AM &middot; 12:30 PM &middot; 3:30 PM &middot; 6:30 PM &middot; 9:00 PM</div>
     </div>
-
     <div id="twilio-window-status" style="font-size:12px;font-weight:600;padding:4px 0 10px"></div>
     <div class="btns">
-      <button class="btn btn-out" onclick="sendTestReminder()" style="font-size:13px">Send Test Text</button>
-      <button class="btn btn-out" onclick="checkAndSendReminders(false)" style="font-size:13px">Check &amp; Send Now</button>
+      <button class="btn btn-out" onclick="sendTestReminder()" style="font-size:13px">&#9993; Send Test Text</button>
+      <button class="btn btn-out" onclick="checkAndSendReminders(false)" style="font-size:13px">Check Now</button>
     </div>
     <div id="twilio-status" style="margin-top:8px;font-size:12px;font-weight:600"></div>
-    <details style="margin-top:16px">
-      <summary style="font-size:13px;color:#3A7D5C;cursor:pointer;font-weight:600;padding:8px 0">&#9881;&#65039; How to set up Twilio Function (one-time setup)</summary>
-      <div style="margin-top:10px;font-size:12px;color:#555549;line-height:1.8;padding:12px;background:#FAFAF7;border-radius:8px;border:1px solid #EAE7E0">
-        <strong>1.</strong> Go to <a href="https://console.twilio.com/us1/develop/functions/services" target="_blank" style="color:#3A7D5C">Twilio Console → Functions</a><br>
-        <strong>2.</strong> Click "Create Service" → name it <em>bp-reminder</em><br>
-        <strong>3.</strong> Add a Function, path: <code>/send-reminder</code><br>
-        <strong>4.</strong> Paste this code in the editor:<br>
-        <textarea readonly class="twilio-code" rows="8">exports.handler = function(context, event, callback) {
-  const client = context.getTwilioClient();
-  client.messages.create({
-    to: event.to,
-    from: context.MY_TWILIO_NUMBER,
-    body: event.message
-  })
-  .then(m => callback(null, { sid: m.sid }))
-  .catch(err => callback(err));
-};</textarea>
-        <strong>5.</strong> In <em>Environment Variables</em> add: <code>MY_TWILIO_NUMBER</code> = your Twilio phone #<br>
-        <strong>6.</strong> Click <strong>Deploy All</strong> → copy the Function URL → paste above
-      </div>
-    </details>
   </div>
 
   <!-- Med log history -->
@@ -1222,16 +1191,14 @@ async function updateMedDef(id, med) {
 async function deleteMedDefDB(id) {
   await fetch(SUPA_URL + "/rest/v1/meds?id=eq." + id, { method: "DELETE", headers: SUPA_HEADERS });
 }
+// ── Twilio — hardcoded, no user setup needed ──
+var TWILIO_URL = "https://bp-reminder-4383.twil.io/send-reminder";
+var TWILIO_TO  = "+19174284252";
+
 function getTwilioSettings() {
-  try { return JSON.parse(localStorage.getItem("bp-twilio") || "{}"); } catch(e) { return {}; }
+  return { url: TWILIO_URL, to: TWILIO_TO };
 }
-function saveTwilioSettings() {
-  var s = {
-    url: (document.getElementById("twilio-url").value || "").trim(),
-    to: (document.getElementById("twilio-to").value || "").trim()
-  };
-  try { localStorage.setItem("bp-twilio", JSON.stringify(s)); } catch(e) {}
-}
+function saveTwilioSettings() {} // no-op, settings are hardcoded
 
 // ── Fixed Reminder Schedule ──
 var WEEKDAY_TIMES = ["04:00", "16:30", "18:00", "20:00"];
@@ -1652,10 +1619,8 @@ loadReadings().then(renderHistory);
 
 // Meds init
 (function initMeds() {
-  var ts = getTwilioSettings();
-  if (ts.url) document.getElementById("twilio-url").value = ts.url;
-  if (ts.to) document.getElementById("twilio-to").value = ts.to;
   clearMedForm();
+  updateWindowStatus();
   checkQRLog();
 })();
 </script>
