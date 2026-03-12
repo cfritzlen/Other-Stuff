@@ -1,6 +1,11 @@
 name: Med Reminder
 
 on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * 1-5'name: Med Reminder
+
+on:
   schedule:
     - cron: '0 9 * * 1-5'      # Weekdays 4:00 AM ET
     - cron: '30 21 * * 1-5'    # Weekdays 4:30 PM ET
