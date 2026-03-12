@@ -1,0 +1,21 @@
+name: Med Reminder
+
+on:
+  schedule:
+    - cron: '0 9 * * 1-5'      # Weekdays 4:00 AM ET
+    - cron: '30 21 * * 1-5'    # Weekdays 4:30 PM ET
+    - cron: '0 23 * * 1-5'     # Weekdays 6:00 PM ET
+    - cron: '0 1 * * 2-6'      # Weekdays 8:00 PM ET
+    - cron: '30 14 * * 0,6'    # Weekends 9:30 AM ET
+    - cron: '30 17 * * 0,6'    # Weekends 12:30 PM ET
+    - cron: '30 20 * * 0,6'    # Weekends 3:30 PM ET
+    - cron: '30 23 * * 0,6'    # Weekends 6:30 PM ET
+    - cron: '0 2 * * 0,1'      # Weekends 9:00 PM ET
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call check-meds
+        run: |
+          curl -X GET "https://bp-reminder-4383.twil.io/check-meds"
