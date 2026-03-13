@@ -466,7 +466,7 @@ var readings = [];
 
 async function fetchReadings() {
   try {
-    var res = await fetch(SUPA_URL + "/rest/v1/bp_readings?order=reading_datetime.desc", { headers: SUPA_HEADERS });
+    var res = await fetch(SUPA_URL + "/rest/v1/bp_readings?person=eq.martin&order=reading_datetime.desc", { headers: SUPA_HEADERS });
     if (!res.ok) throw new Error("HTTP " + res.status);
     return await res.json();
   } catch (e) {
@@ -582,6 +582,7 @@ async function saveReading() {
   btn.textContent = "Saving...";
   var dt = document.getElementById("datetime").value;
   var entry = {
+    person: "martin",
     systolic: parseInt(sys),
     diastolic: parseInt(dia),
     pulse: document.getElementById("pulse").value ? parseInt(document.getElementById("pulse").value) : null,
@@ -965,7 +966,7 @@ var sleepEntries = [];
 
 async function loadSleepEntries() {
   try {
-    var res = await fetch(SUPA_URL + "/rest/v1/sleep_entries?order=sleep_date.desc", { headers: SUPA_HEADERS });
+    var res = await fetch(SUPA_URL + "/rest/v1/sleep_entries?person=eq.martin&order=sleep_date.desc", { headers: SUPA_HEADERS });
     if (!res.ok) throw new Error("HTTP " + res.status);
     sleepEntries = await res.json();
   } catch(e) {
@@ -1025,6 +1026,7 @@ async function saveSleep() {
   var btn = document.getElementById("sleep-save-btn");
   btn.disabled = true; btn.textContent = "Saving...";
   var entry = {
+    person: "martin",
     sleep_date: document.getElementById("sleep-date").value || todayStr(),
     total_asleep_minutes: total,
     awake_minutes: parseInt(document.getElementById("sleep-awake").value) || null,
@@ -1169,7 +1171,7 @@ var medsCache = null;
 
 async function getMeds() {
   try {
-    var res = await fetch(SUPA_URL + "/rest/v1/meds?order=created_at.asc", { headers: SUPA_HEADERS });
+    var res = await fetch(SUPA_URL + "/rest/v1/meds?person=eq.martin&order=created_at.asc", { headers: SUPA_HEADERS });
     if (!res.ok) throw new Error("HTTP " + res.status);
     medsCache = await res.json();
     return medsCache;
@@ -1177,6 +1179,7 @@ async function getMeds() {
 }
 
 async function insertMedDef(med) {
+  med.person = "martin";
   var res = await fetch(SUPA_URL + "/rest/v1/meds", {
     method: "POST", headers: SUPA_HEADERS, body: JSON.stringify(med)
   });
@@ -1260,14 +1263,14 @@ var medLogs = [];
 async function fetchMedLogs() {
   var today = todayStr();
   try {
-    var res = await fetch(SUPA_URL + "/rest/v1/med_logs?taken_at=gte." + today + "T00:00:00&order=taken_at.desc&limit=50", { headers: SUPA_HEADERS });
+    var res = await fetch(SUPA_URL + "/rest/v1/med_logs?person=eq.martin&taken_at=gte." + today + "T00:00:00&order=taken_at.desc&limit=50", { headers: SUPA_HEADERS });
     if (!res.ok) throw new Error("HTTP " + res.status);
     medLogs = await res.json();
   } catch(e) { medLogs = []; }
 }
 
 async function insertMedLog(medId, medName) {
-  var entry = { med_id: medId, med_name: medName, taken_at: new Date().toISOString() };
+  var entry = { med_id: medId, med_name: medName, taken_at: new Date().toISOString(), person: "martin" };
   try {
     var res = await fetch(SUPA_URL + "/rest/v1/med_logs", {
       method: "POST", headers: SUPA_HEADERS, body: JSON.stringify(entry)
