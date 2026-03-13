@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Tina's Meds">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>🦄 Tina's Med Tracker</title>
+<title>Tina's Med Tracker</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦄</text></svg>">
 <link rel="apple-touch-icon" href="unicorn-icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -810,7 +810,7 @@ async function generateQRCodes() {
   var meds = await getMeds(); var list = document.getElementById("meds-qr-list"); var dcList = document.getElementById("daycare-qr-list");
   var baseUrl = window.location.href.split("?")[0];
   if (!meds.length) { list.innerHTML = '<div class="empty" style="padding:12px 0"><div>Add meds first</div></div>'; dcList.innerHTML = ''; return; }
-  // Mom QR codes
+  // Home QR codes — every med
   list.innerHTML = meds.map(function(med) {
     var url = baseUrl + "?log=" + med.id;
     var qrSrc = "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" + encodeURIComponent(url);
@@ -823,8 +823,8 @@ async function generateQRCodes() {
         '<button onclick="printQR(\'' + med.id + '\',\'' + med.name.replace(/'/g,"").replace(/"/g,"") + '\',false)" style="padding:6px 14px;border-radius:8px;border:1.5px solid #9B59B6;color:#9B59B6;background:none;font-size:12px;font-weight:600;cursor:pointer;font-family:\'Fredoka\',sans-serif">&#128424; Print</button>' +
       '</div></div>';
   }).join("");
-  // Daycare QR codes
-  dcList.innerHTML = meds.filter(function(m) { return m.med_type !== "as_needed"; }).map(function(med) {
+  // Daycare QR codes — every med
+  dcList.innerHTML = meds.map(function(med) {
     var url = baseUrl + "?daycare=" + med.id;
     var qrSrc = "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" + encodeURIComponent(url);
     return '<div style="padding:12px;border-radius:12px;background:#FDF8FF;border:1px solid #E8D5F5;margin-bottom:10px">' +
