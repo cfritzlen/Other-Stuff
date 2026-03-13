@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Tina's Meds">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Tina's Med Tracker</title>
+<title>🦄 Tina's Med Tracker</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦄</text></svg>">
 <link rel="apple-touch-icon" href="unicorn-icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -306,21 +306,31 @@
         <option value="prn">&#127464; PRN / Rescue</option>
       </select>
     </div>
-    <div id="med-times-section">
+    <div id="med-schedule-section" style="margin-bottom:12px">
+      <label class="label">Schedule</label>
+      <div style="display:flex;gap:16px;padding:10px 0">
+        <label style="display:flex;align-items:center;gap:8px;font-size:15px;color:#5B4A6E;cursor:pointer">
+          <input type="checkbox" id="med-morning" style="width:20px;height:20px;accent-color:#9B59B6"> &#9728;&#65039; Morning
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:15px;color:#5B4A6E;cursor:pointer">
+          <input type="checkbox" id="med-night" style="width:20px;height:20px;accent-color:#9B59B6"> &#127769; Night
+        </label>
+      </div>
+    </div>
+    <div id="med-times-section" class="hidden">
       <div style="margin-bottom:12px">
         <label class="label">Dose Time(s)</label>
         <div id="med-times-list"></div>
         <button onclick="addDoseTimeField('')" style="margin-top:8px;padding:7px 16px;border-radius:10px;border:1.5px solid #9B59B6;color:#9B59B6;background:none;font-size:13px;font-weight:600;cursor:pointer;font-family:'Fredoka',sans-serif">+ Add Time</button>
       </div>
     </div>
-    <div id="med-date-section" class="hidden">
+    <div id="med-date-section" style="margin-bottom:12px">
+      <label class="label">Start / End Date (optional)</label>
       <div class="row">
         <div class="field">
-          <label class="label">Start Date</label>
           <input type="date" id="med-start-date">
         </div>
         <div class="field">
-          <label class="label">End Date</label>
           <input type="date" id="med-end-date">
         </div>
       </div>
@@ -481,15 +491,13 @@ function getTodayLogCount(medId) { var today = todayStr(); return medLogs.filter
 
 function isMedActiveToday(med) {
   var today = todayStr();
-  if (med.med_type === "short_course" || med.med_type === "seasonal") {
-    if (med.start_date && today < med.start_date) return false;
-    if (med.end_date && today > med.end_date) return false;
-  }
+  if (med.start_date && today < med.start_date) return false;
+  if (med.end_date && today > med.end_date) return false;
   return true;
 }
 
-function timeIcon(t) { if (!t) return ""; var h = parseInt(t.split(":")[0]); return h < 12 ? "&#9728;&#65039;" : h < 17 ? "&#127774;" : "&#127769;"; }
-function fmtTimeShort(t) { if (!t) return ""; var p = t.split(":"); var h = parseInt(p[0]), m = parseInt(p[1]); return (h > 12 ? h-12 : h || 12) + ":" + String(m).padStart(2,"0") + (h >= 12 ? "pm" : "am"); }
+function timeIcon(t) { if (!t) return ""; if (t === "morning") return "&#9728;&#65039;"; if (t === "night") return "&#127769;"; var h = parseInt(t.split(":")[0]); return h < 12 ? "&#9728;&#65039;" : h < 17 ? "&#127774;" : "&#127769;"; }
+function fmtTimeShort(t) { if (!t) return ""; if (t === "morning") return "Morning"; if (t === "night") return "Night"; var p = t.split(":"); var h = parseInt(p[0]), m = parseInt(p[1]); return (h > 12 ? h-12 : h || 12) + ":" + String(m).padStart(2,"0") + (h >= 12 ? "pm" : "am"); }
 
 function medTypeIcon(t) {
   var icons = { maintenance: "&#9728;&#65039;&#127769;", as_needed: "&#128161;", short_course: "&#128138;", seasonal: "&#127800;", prn: "&#127464;" };
@@ -750,8 +758,11 @@ function renderNotesList() {
 // ═══ ADMIN ═══
 function toggleMedTypeFields() {
   var t = document.getElementById("med-type").value;
-  document.getElementById("med-date-section").classList.toggle("hidden", t !== "short_course" && t !== "seasonal");
-  document.getElementById("med-times-section").classList.toggle("hidden", t === "as_needed");
+  var usesSchedule = (t === "maintenance" || t === "short_course" || t === "seasonal");
+  var usesTimePicker = (t === "prn");
+  document.getElementById("med-schedule-section").classList.toggle("hidden", !usesSchedule);
+  document.getElementById("med-times-section").classList.toggle("hidden", !usesTimePicker);
+  document.getElementById("med-date-section").classList.toggle("hidden", t === "as_needed" || t === "prn");
   document.getElementById("med-puffs-section").classList.toggle("hidden", t !== "prn" && t !== "as_needed");
 }
 function addDoseTimeField(val) {
@@ -764,14 +775,21 @@ function clearMedForm() {
   document.getElementById("med-times-list").innerHTML = ""; document.getElementById("med-edit-id").value = "";
   document.getElementById("med-start-date").value = ""; document.getElementById("med-end-date").value = "";
   document.getElementById("med-default-puffs").value = "";
-  toggleMedTypeFields(); addDoseTimeField("");
+  document.getElementById("med-morning").checked = false;
+  document.getElementById("med-night").checked = false;
+  toggleMedTypeFields();
 }
 function editMed(id) {
   var med = (medsCache || []).find(function(m) { return m.id === id; }); if (!med) return;
   document.getElementById("med-name").value = med.name;
   document.getElementById("med-type").value = med.med_type || "maintenance";
   document.getElementById("med-times-list").innerHTML = "";
-  (med.dose_times || []).forEach(function(t) { addDoseTimeField(t); });
+  // Populate morning/night checkboxes from dose_times
+  var times = med.dose_times || [];
+  document.getElementById("med-morning").checked = times.indexOf("morning") >= 0;
+  document.getElementById("med-night").checked = times.indexOf("night") >= 0;
+  // Populate time pickers for PRN
+  times.filter(function(t) { return t !== "morning" && t !== "night"; }).forEach(function(t) { addDoseTimeField(t); });
   if (med.start_date) document.getElementById("med-start-date").value = med.start_date;
   if (med.end_date) document.getElementById("med-end-date").value = med.end_date;
   if (med.default_puffs) document.getElementById("med-default-puffs").value = med.default_puffs;
@@ -783,12 +801,16 @@ async function saveMed() {
   var name = (document.getElementById("med-name").value || "").trim();
   if (!name) { alert("Enter a med name"); return; }
   var medType = document.getElementById("med-type").value; var times = [];
-  if (medType !== "as_needed") {
+  var usesSchedule = (medType === "maintenance" || medType === "short_course" || medType === "seasonal");
+  if (usesSchedule) {
+    if (document.getElementById("med-morning").checked) times.push("morning");
+    if (document.getElementById("med-night").checked) times.push("night");
+    if (!times.length) { alert("Pick at least Morning or Night"); return; }
+  } else if (medType === "prn") {
     document.getElementById("med-times-list").querySelectorAll("input[type=time]").forEach(function(inp) { if (inp.value) times.push(inp.value); });
-    if (!times.length && medType !== "prn") { alert("Add at least one dose time"); return; }
   }
   var puffs = document.getElementById("med-default-puffs").value;
-  var medObj = { name: name, med_type: medType, dose_times: times.length ? times : null, start_date: (medType === "short_course" || medType === "seasonal") ? (document.getElementById("med-start-date").value || null) : null, end_date: (medType === "short_course" || medType === "seasonal") ? (document.getElementById("med-end-date").value || null) : null, default_puffs: puffs ? parseInt(puffs) : null };
+  var medObj = { name: name, med_type: medType, dose_times: times.length ? times : null, start_date: usesSchedule ? (document.getElementById("med-start-date").value || null) : null, end_date: usesSchedule ? (document.getElementById("med-end-date").value || null) : null, default_puffs: puffs ? parseInt(puffs) : null };
   var editId = document.getElementById("med-edit-id").value;
   try { if (editId) { await updateMedDef(editId, medObj); } else { await insertMedDef(medObj); } medsCache = null; clearMedForm(); await renderAdminMedList(); showBanner("&#128138; Med saved!"); } catch(e) { alert("Could not save: " + e.message); }
 }
