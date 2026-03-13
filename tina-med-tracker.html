@@ -289,17 +289,6 @@
       <p style="font-size:12px;color:#5B4A6E;margin-bottom:10px;line-height:1.5">Logs med + shows "Thank You" &mdash; no health data shown.</p>
       <div id="daycare-qr-list"></div>
     </div>
-    <div style="margin-top:14px;padding-top:14px;border-top:1.5px solid #E8D5F5">
-      <div style="font-size:14px;font-weight:700;color:#7D3C98;margin-bottom:8px">&#128147; Day Log QR (thank you only)</div>
-      <p style="font-size:12px;color:#5B4A6E;margin-bottom:10px;line-height:1.5">Just shows "Thank You" &mdash; doesn't log anything or show data.</p>
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;background:#FDF8FF;border:1px solid #E8D5F5">
-        <div style="font-size:14px;font-weight:600;color:#7D3C98">&#128147; Day Log - Thank You</div>
-        <div style="display:flex;gap:6px">
-          <button onclick="copyDayLogUrl()" style="padding:5px 12px;border-radius:8px;border:1.5px solid #9B59B6;color:#9B59B6;background:none;font-size:12px;font-weight:600;cursor:pointer;font-family:'Fredoka',sans-serif">Copy</button>
-          <button onclick="printDayLogQR()" style="padding:5px 12px;border-radius:8px;border:1.5px solid #9B59B6;color:#9B59B6;background:none;font-size:12px;font-weight:600;cursor:pointer;font-family:'Fredoka',sans-serif">&#128424; Print</button>
-        </div>
-      </div>
-    </div>
   </div>
   <div class="card">
     <div class="sec-title">&#10133; Add / Edit Med</div>
@@ -821,24 +810,34 @@ async function generateQRCodes() {
   var meds = await getMeds(); var list = document.getElementById("meds-qr-list"); var dcList = document.getElementById("daycare-qr-list");
   var baseUrl = window.location.href.split("?")[0];
   if (!meds.length) { list.innerHTML = '<div class="empty" style="padding:12px 0"><div>Add meds first</div></div>'; dcList.innerHTML = ''; return; }
+  // Mom QR codes
   list.innerHTML = meds.map(function(med) {
     var url = baseUrl + "?log=" + med.id;
-    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;background:#FDF8FF;border:1px solid #E8D5F5;margin-bottom:6px"><div style="font-size:14px;font-weight:600;color:#7D3C98">&#128138; ' + med.name + '</div><div style="display:flex;gap:6px"><button onclick="copyUrl(\'' + encodeURIComponent(url) + '\')" style="padding:5px 12px;border-radius:8px;border:1.5px solid #9B59B6;color:#9B59B6;background:none;font-size:12px;font-weight:600;cursor:pointer;font-family:\'Fredoka\',sans-serif">Copy</button><button onclick="printQR(\'' + med.id + '\',\'' + med.name.replace(/'/g,"").replace(/"/g,"") + '\',false)" style="padding:5px 12px;border-radius:8px;border:1.5px solid #9B59B6;color:#9B59B6;background:none;font-size:12px;font-weight:600;cursor:pointer;font-family:\'Fredoka\',sans-serif">&#128424; Print</button></div></div>';
+    var qrSrc = "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" + encodeURIComponent(url);
+    return '<div style="padding:12px;border-radius:12px;background:#FDF8FF;border:1px solid #E8D5F5;margin-bottom:10px">' +
+      '<div style="font-size:15px;font-weight:700;color:#7D3C98;margin-bottom:8px">&#128138; ' + med.name + '</div>' +
+      '<div style="text-align:center;margin-bottom:8px"><img src="' + qrSrc + '" width="140" height="140" style="border:2px solid #E8D5F5;border-radius:10px;padding:6px"></div>' +
+      '<div style="font-size:10px;color:#C0A3D6;word-break:break-all;margin-bottom:8px;text-align:center">' + url + '</div>' +
+      '<div style="display:flex;gap:6px;justify-content:center">' +
+        '<button onclick="copyUrl(\'' + encodeURIComponent(url) + '\')" style="padding:6px 14px;border-radius:8px;border:1.5px solid #9B59B6;color:#9B59B6;background:none;font-size:12px;font-weight:600;cursor:pointer;font-family:\'Fredoka\',sans-serif">&#128203; Copy</button>' +
+        '<button onclick="printQR(\'' + med.id + '\',\'' + med.name.replace(/'/g,"").replace(/"/g,"") + '\',false)" style="padding:6px 14px;border-radius:8px;border:1.5px solid #9B59B6;color:#9B59B6;background:none;font-size:12px;font-weight:600;cursor:pointer;font-family:\'Fredoka\',sans-serif">&#128424; Print</button>' +
+      '</div></div>';
   }).join("");
+  // Daycare QR codes
   dcList.innerHTML = meds.filter(function(m) { return m.med_type !== "as_needed"; }).map(function(med) {
     var url = baseUrl + "?daycare=" + med.id;
-    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;background:#FDF8FF;border:1px solid #E8D5F5;margin-bottom:6px"><div style="font-size:14px;font-weight:600;color:#7D3C98">&#127979; ' + med.name + '</div><div style="display:flex;gap:6px"><button onclick="copyUrl(\'' + encodeURIComponent(url) + '\')" style="padding:5px 12px;border-radius:8px;border:1.5px solid #9B59B6;color:#9B59B6;background:none;font-size:12px;font-weight:600;cursor:pointer;font-family:\'Fredoka\',sans-serif">Copy</button><button onclick="printQR(\'' + med.id + '\',\'' + med.name.replace(/'/g,"").replace(/"/g,"") + '\',true)" style="padding:5px 12px;border-radius:8px;border:1.5px solid #9B59B6;color:#9B59B6;background:none;font-size:12px;font-weight:600;cursor:pointer;font-family:\'Fredoka\',sans-serif">&#128424; Print</button></div></div>';
+    var qrSrc = "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" + encodeURIComponent(url);
+    return '<div style="padding:12px;border-radius:12px;background:#FDF8FF;border:1px solid #E8D5F5;margin-bottom:10px">' +
+      '<div style="font-size:15px;font-weight:700;color:#7D3C98;margin-bottom:8px">&#127979; ' + med.name + '</div>' +
+      '<div style="text-align:center;margin-bottom:8px"><img src="' + qrSrc + '" width="140" height="140" style="border:2px solid #E8D5F5;border-radius:10px;padding:6px"></div>' +
+      '<div style="font-size:10px;color:#C0A3D6;word-break:break-all;margin-bottom:8px;text-align:center">' + url + '</div>' +
+      '<div style="display:flex;gap:6px;justify-content:center">' +
+        '<button onclick="copyUrl(\'' + encodeURIComponent(url) + '\')" style="padding:6px 14px;border-radius:8px;border:1.5px solid #9B59B6;color:#9B59B6;background:none;font-size:12px;font-weight:600;cursor:pointer;font-family:\'Fredoka\',sans-serif">&#128203; Copy</button>' +
+        '<button onclick="printQR(\'' + med.id + '\',\'' + med.name.replace(/'/g,"").replace(/"/g,"") + '\',true)" style="padding:6px 14px;border-radius:8px;border:1.5px solid #9B59B6;color:#9B59B6;background:none;font-size:12px;font-weight:600;cursor:pointer;font-family:\'Fredoka\',sans-serif">&#128424; Print</button>' +
+      '</div></div>';
   }).join("");
 }
 function copyUrl(enc) { navigator.clipboard.writeText(decodeURIComponent(enc)).then(function() { showBanner("&#128203; Copied!"); }).catch(function() { prompt("Copy:", decodeURIComponent(enc)); }); }
-function copyDayLogUrl() { var url = window.location.href.split("?")[0] + "?thankyou=1"; navigator.clipboard.writeText(url).then(function() { showBanner("&#128203; Day Log link copied!"); }).catch(function() { prompt("Copy:", url); }); }
-function printDayLogQR() {
-  var url = window.location.href.split("?")[0] + "?thankyou=1";
-  var qrSrc = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent(url);
-  var w = window.open("", "_blank");
-  w.document.write('<!DOCTYPE html><html><head><title>Day Log QR</title><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet"><style>body{font-family:"Fredoka",sans-serif;text-align:center;padding:40px;background:#FDF8FF}h2{color:#7D3C98;font-size:22px;margin-bottom:6px}p{color:#A88BC3;font-size:14px;margin-bottom:20px}img{border:2px solid #E8D5F5;border-radius:12px;padding:10px}.url{font-size:10px;color:#C0A3D6;margin-top:8px;word-break:break-all;max-width:260px;margin:8px auto}@media print{button{display:none}}</style></head><body><h2>&#129412; Day Log</h2><p>Scan to say Thank You (no data shown)</p><img src="' + qrSrc + '" width="220" height="220"><div class="url">' + url + '</div><br><button onclick="window.print()" style="margin-top:16px;padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#9B59B6,#8E44AD);color:#fff;font-size:15px;cursor:pointer;font-family:Fredoka,sans-serif;font-weight:600">&#128424; Print</button></body></html>');
-  w.document.close();
-}
 function printQR(medId, medName, isDaycare) {
   var baseUrl = window.location.href.split("?")[0];
   var url = isDaycare ? baseUrl + "?daycare=" + medId : baseUrl + "?log=" + medId;
@@ -852,12 +851,6 @@ function printQR(medId, medName, isDaycare) {
 // ═══ QR SCAN HANDLERS ═══
 async function checkQRLog() {
   var params = new URLSearchParams(window.location.search);
-  // Day Log QR — just thank you, no logging
-  var thankyou = params.get("thankyou");
-  if (thankyou) {
-    window.history.replaceState({}, "", window.location.pathname);
-    showThankYou(); return;
-  }
   var daycareId = params.get("daycare");
   if (daycareId) {
     window.history.replaceState({}, "", window.location.pathname);
