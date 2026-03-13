@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Tina's Meds">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>🦄 Tina's Med Tracker</title>
+<title>Tina's Med Tracker</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦄</text></svg>">
 <link rel="apple-touch-icon" href="unicorn-icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -299,11 +299,11 @@
     <div style="margin-bottom:12px">
       <label class="label">Type</label>
       <select id="med-type" onchange="toggleMedTypeFields()">
-        <option value="maintenance">&#9728;&#65039;&#127769; Maintenance (morning/night)</option>
-        <option value="as_needed">&#128161; As Needed</option>
-        <option value="short_course">&#128138; Short Course (e.g. 5 days)</option>
-        <option value="seasonal">&#127800; Seasonal</option>
-        <option value="prn">&#127464; PRN / Rescue</option>
+        <option value="maintenance">Maintenance</option>
+        <option value="as_needed">As Needed</option>
+        <option value="short_course">Short Course (e.g. 5 days)</option>
+        <option value="seasonal">Seasonal</option>
+        <option value="prn">Rescue</option>
       </select>
     </div>
     <div id="med-schedule-section" style="margin-bottom:12px">
@@ -377,6 +377,30 @@
     <div class="btns" style="justify-content:center">
       <button class="btn btn-pri" onclick="confirmPuffLog()">&#10003; Log It</button>
       <button class="btn btn-out" onclick="closePuffModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ EDIT LOG MODAL ═══ -->
+<div id="edit-log-modal" style="display:none;position:fixed;inset:0;z-index:9990;background:rgba(45,27,78,0.5);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#FDF8FF;border-radius:18px;padding:24px;max-width:340px;width:100%;border:2px solid #E8D5F5;box-shadow:0 8px 30px rgba(142,68,173,0.25)">
+    <div style="font-size:16px;font-weight:700;color:#7D3C98;margin-bottom:16px;text-align:center">Edit Log Entry</div>
+    <div style="margin-bottom:12px">
+      <label class="label">Med Name</label>
+      <input type="text" id="edit-log-name">
+    </div>
+    <div style="margin-bottom:12px">
+      <label class="label">Date &amp; Time</label>
+      <input type="datetime-local" id="edit-log-datetime">
+    </div>
+    <div style="margin-bottom:16px">
+      <label class="label">Puffs (optional)</label>
+      <input type="number" inputmode="numeric" id="edit-log-puffs" placeholder="Leave blank if N/A" style="width:120px">
+    </div>
+    <input type="hidden" id="edit-log-id">
+    <div class="btns" style="justify-content:center">
+      <button class="btn btn-pri" onclick="saveLogEdit()">Save</button>
+      <button class="btn btn-out" onclick="closeEditLogModal()">Cancel</button>
     </div>
   </div>
 </div>
@@ -487,6 +511,39 @@ async function deleteMedLog(id) {
   try { await fetch(SUPA_URL + "/rest/v1/med_logs?id=eq." + id, { method: "DELETE", headers: SUPA_HEADERS }); medLogs = medLogs.filter(function(l) { return l.id !== id; }); renderMedsTab(); } catch(e) {}
 }
 
+function openEditLogModal(id) {
+  var log = medLogs.find(function(l) { return l.id === id; }) || allMedLogs.find(function(l) { return l.id === id; });
+  if (!log) return;
+  document.getElementById("edit-log-id").value = id;
+  document.getElementById("edit-log-name").value = log.med_name || "";
+  document.getElementById("edit-log-puffs").value = log.puffs || "";
+  if (log.taken_at) {
+    var d = new Date(log.taken_at);
+    var local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    document.getElementById("edit-log-datetime").value = local;
+  }
+  document.getElementById("edit-log-modal").style.display = "flex";
+}
+function closeEditLogModal() { document.getElementById("edit-log-modal").style.display = "none"; }
+
+async function saveLogEdit() {
+  var id = document.getElementById("edit-log-id").value;
+  if (!id) return;
+  var name = (document.getElementById("edit-log-name").value || "").trim();
+  var dt = document.getElementById("edit-log-datetime").value;
+  var puffs = document.getElementById("edit-log-puffs").value;
+  if (!name) { alert("Enter a med name"); return; }
+  var update = { med_name: name, taken_at: new Date(dt).toISOString(), puffs: puffs ? parseInt(puffs) : null };
+  try {
+    var r = await fetch(SUPA_URL + "/rest/v1/med_logs?id=eq." + id, { method: "PATCH", headers: SUPA_HEADERS, body: JSON.stringify(update) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    closeEditLogModal();
+    await fetchMedLogs();
+    await refreshMedsTab();
+    showBanner("&#128221; Log updated!");
+  } catch(e) { alert("Could not update: " + e.message); }
+}
+
 function getTodayLogCount(medId) { var today = todayStr(); return medLogs.filter(function(l) { return String(l.med_id) === String(medId) && l.taken_at && l.taken_at.slice(0,10) === today; }).length; }
 
 function isMedActiveToday(med) {
@@ -499,12 +556,9 @@ function isMedActiveToday(med) {
 function timeIcon(t) { if (!t) return ""; if (t === "morning") return "&#9728;&#65039;"; if (t === "night") return "&#127769;"; var h = parseInt(t.split(":")[0]); return h < 12 ? "&#9728;&#65039;" : h < 17 ? "&#127774;" : "&#127769;"; }
 function fmtTimeShort(t) { if (!t) return ""; if (t === "morning") return "Morning"; if (t === "night") return "Night"; var p = t.split(":"); var h = parseInt(p[0]), m = parseInt(p[1]); return (h > 12 ? h-12 : h || 12) + ":" + String(m).padStart(2,"0") + (h >= 12 ? "pm" : "am"); }
 
-function medTypeIcon(t) {
-  var icons = { maintenance: "&#9728;&#65039;&#127769;", as_needed: "&#128161;", short_course: "&#128138;", seasonal: "&#127800;", prn: "&#127464;" };
-  return icons[t] || "&#128138;";
-}
+function medTypeIcon(t) { return ""; }
 function medTypeLabel(t) {
-  var labels = { maintenance: "Maintenance", as_needed: "As Needed", short_course: "Short Course", seasonal: "Seasonal", prn: "PRN / Rescue" };
+  var labels = { maintenance: "Maintenance", as_needed: "As Needed", short_course: "Short Course", seasonal: "Seasonal", prn: "Rescue" };
   return labels[t] || t;
 }
 
@@ -585,7 +639,7 @@ function renderMedLogHistory() {
   if (!medLogs.length) { list.innerHTML = '<div class="empty" style="padding:16px 0"><div>No meds logged today yet</div></div>'; return; }
   list.innerHTML = medLogs.slice(0,30).map(function(l) {
     var puffInfo = l.puffs ? ' <span style="color:#9B59B6;font-weight:700">(' + l.puffs + ' puffs)</span>' : '';
-    return '<div class="log-entry"><div><div style="font-size:14px;font-weight:600;color:#7D3C98">&#128138; ' + (l.med_name || "Unknown") + puffInfo + '</div><div style="font-size:11px;color:#A88BC3;margin-top:2px">' + (l.taken_at ? fmtTime(l.taken_at) : "") + '</div></div>' + (l.id ? '<button class="note-del" onclick="deleteMedLog(' + l.id + ')">&#215;</button>' : '') + '</div>';
+    return '<div class="log-entry"><div><div style="font-size:14px;font-weight:600;color:#7D3C98">&#128138; ' + (l.med_name || "Unknown") + puffInfo + '</div><div style="font-size:11px;color:#A88BC3;margin-top:2px">' + (l.taken_at ? fmtTime(l.taken_at) : "") + '</div></div><div style="display:flex;gap:4px">' + (l.id ? '<button class="note-del" onclick="openEditLogModal(' + l.id + ')" style="color:#9B59B6">&#9998;</button><button class="note-del" onclick="deleteMedLog(' + l.id + ')">&#215;</button>' : '') + '</div></div>';
   }).join("");
 }
 
@@ -600,7 +654,7 @@ async function renderPastLogs() {
   list.innerHTML = dates.map(function(d) {
     return '<div><div class="past-med-date">' + fmtShort(d + "T12:00:00") + '</div>' + byDate[d].map(function(l) {
       var puffInfo = l.puffs ? ' (' + l.puffs + ' puffs)' : '';
-      return '<div class="log-entry"><div><div style="font-size:13px;font-weight:600;color:#7D3C98">&#128138; ' + (l.med_name || "Unknown") + puffInfo + '</div><div style="font-size:11px;color:#A88BC3">' + fmtTime(l.taken_at) + '</div></div></div>';
+      return '<div class="log-entry"><div><div style="font-size:13px;font-weight:600;color:#7D3C98">&#128138; ' + (l.med_name || "Unknown") + puffInfo + '</div><div style="font-size:11px;color:#A88BC3">' + fmtTime(l.taken_at) + '</div></div>' + (l.id ? '<button class="note-del" onclick="openEditLogModal(' + l.id + ')" style="color:#9B59B6">&#9998;</button>' : '') + '</div>';
     }).join("") + '</div>';
   }).join("");
 }
