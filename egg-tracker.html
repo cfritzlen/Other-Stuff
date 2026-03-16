@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🥚 Egg Tracker - Watch Them Grow!</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Fredoka', 'Comic Neue', cursive, sans-serif;
+            background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 50%, #fab1a0 100%);
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+        .decoration {
+            position: fixed; opacity: 0.1; pointer-events: none;
+            font-size: 80px; animation: float 20s infinite ease-in-out; z-index: 0;
+        }
+        .decoration:nth-child(1) { top: 10%; left: 5%; animation-delay: 0s; }
+        .decoration:nth-child(2) { top: 60%; right: 10%; animation-delay: 3s; }
+        .decoration:nth-child(3) { bottom: 15%; left: 15%; animation-delay: 6s; }
+        .decoration:nth-child(4) { top: 30%; right: 20%; animation-delay: 9s; }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            25% { transform: translateY(-30px) rotate(5deg); }
+            50% { transform: translateY(-15px) rotate(-5deg); }
+            75% { transform: translateY(-35px) rotate(3deg); }
+        }
+        .container { max-width: 600px; margin: 0 auto; position: relative; z-index: 1; }
+        .header { text-align: center; margin-bottom: 30px; animation: bounceIn 0.8s ease-out; }
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        h1 {
+            font-size: 3em; color: #2d3436;
+            text-shadow: 3px 3px 0px #fff, 6px 6px 0px rgba(0,0,0,0.1);
+            margin-bottom: 10px; font-weight: 700;
+        }
+        .subtitle { font-size: 1.3em; color: #636e72; font-weight: 400; }
+        .tabs { display: flex; gap: 15px; margin-bottom: 25px; animation: slideIn 0.6s ease-out 0.3s both; }
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .tab {
+            flex: 1; padding: 20px; background: white;
+            border: 4px solid #2d3436; border-radius: 25px; cursor: pointer;
+            text-align: center; font-size: 1.5em; font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 6px 0 #2d3436; position: relative; top: 0;
+        }
+        .tab:hover { transform: translateY(-5px); box-shadow: 0 11px 0 #2d3436; }
+        .tab.active {
+            background: linear-gradient(135deg, #74b9ff 0%, #a29bfe 100%);
+            color: white; transform: translateY(3px); box-shadow: 0 3px 0 #2d3436;
+        }
+        .content {
+            background: white; border: 5px solid #2d3436; border-radius: 30px;
+            padding: 40px; box-shadow: 0 10px 0 #2d3436, 0 20px 40px rgba(0,0,0,0.2);
+            animation: fadeIn 0.6s ease-out 0.5s both;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .day-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #55efc4 0%, #00b894 100%);
+            color: white; padding: 15px 30px; border-radius: 50px;
+            font-size: 1.8em; font-weight: 700; margin-bottom: 25px;
+            border: 4px solid #2d3436; box-shadow: 0 5px 0 #00b894;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .egg-image {
+            width: 100%; max-width: 300px; height: 300px;
+            margin: 25px auto; border: 5px solid #2d3436; border-radius: 25px;
+            display: flex; align-items: center; justify-content: center;
+            background: #f8f9fa; font-size: 8em;
+            box-shadow: inset 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .info-section {
+            margin: 25px 0; padding: 20px;
+            background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+            border: 4px solid #2d3436; border-radius: 20px;
+        }
+        .info-section h3 {
+            font-size: 1.5em; color: #2d3436; margin-bottom: 15px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .info-section p { font-size: 1.2em; color: #2d3436; line-height: 1.6; }
+        .stat-box {
+            display: inline-block; background: white; padding: 12px 20px;
+            border-radius: 15px; border: 3px solid #2d3436;
+            margin: 8px 5px; font-weight: 600; font-size: 1.1em;
+        }
+        .hidden { display: none; }
+        .hatch-countdown {
+            text-align: center; font-size: 1.6em; font-weight: 700;
+            color: #e74c3c; margin-top: 20px; padding: 20px;
+            background: white; border: 4px dashed #e74c3c; border-radius: 20px;
+        }
+        .loading { text-align: center; padding: 40px; font-size: 1.5em; color: #636e72; }
+        @media (max-width: 600px) {
+            h1 { font-size: 2em; }
+            .tab { font-size: 1.2em; padding: 15px; }
+            .content { padding: 25px; }
+        }
+        @media print {
+            body { background: white; }
+            .decoration, .header, .tabs, button { display: none; }
+            .info-section:not(:has(#duck-qr)):not(:has(#goose-qr)) { display: none; }
+            .content { border: none; box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="decoration">🐣</div>
+    <div class="decoration">🥚</div>
+    <div class="decoration">🐥</div>
+    <div class="decoration">🦆</div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🥚 Egg Watch 🥚</h1>
+            <div class="subtitle">Growing Baby Birds!</div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('ducks')">🦆 Ducks</div>
+            <div class="tab" onclick="showTab('geese')">🪿 Geese</div>
+            <div class="tab" onclick="showTab('admin')">⚙️ Admin</div>
+        </div>
+
+        <div id="ducks-content" class="content">
+            <div class="loading">Loading duck data...</div>
+        </div>
+
+        <div id="geese-content" class="content hidden">
+            <div class="loading">Loading goose data...</div>
+        </div>
+
+        <div id="admin-content" class="content hidden">
+            <h2 style="text-align: center; margin-bottom: 30px; font-size: 2em;">⚙️ Admin Panel</h2>
+            
+            <div class="info-section">
+                <h3>🦆 Manage Duck Eggs</h3>
+                <div style="margin: 15px 0;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">Start Date:</label>
+                    <input type="date" id="duck-start" style="width: 100%; padding: 12px; border: 3px solid #2d3436; border-radius: 10px; font-size: 1.1em; font-family: 'Fredoka', cursive;">
+                </div>
+                <div style="margin: 15px 0;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">Number of Eggs:</label>
+                    <input type="number" id="duck-count" min="0" placeholder="8" style="width: 100%; padding: 12px; border: 3px solid #2d3436; border-radius: 10px; font-size: 1.1em; font-family: 'Fredoka', cursive;">
+                </div>
+                <button onclick="saveDuckSettings()" style="width: 100%; padding: 15px; background: linear-gradient(135deg, #74b9ff 0%, #a29bfe 100%); color: white; border: 4px solid #2d3436; border-radius: 15px; font-size: 1.2em; font-weight: 700; cursor: pointer; box-shadow: 0 5px 0 #2d3436; font-family: 'Fredoka', cursive;">
+                    💾 Save Duck Settings
+                </button>
+            </div>
+
+            <div class="info-section">
+                <h3>🪿 Manage Goose Eggs</h3>
+                <div style="margin: 15px 0;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">Start Date:</label>
+                    <input type="date" id="goose-start" style="width: 100%; padding: 12px; border: 3px solid #2d3436; border-radius: 10px; font-size: 1.1em; font-family: 'Fredoka', cursive;">
+                </div>
+                <div style="margin: 15px 0;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">Number of Eggs:</label>
+                    <input type="number" id="goose-count" min="0" placeholder="3" style="width: 100%; padding: 12px; border: 3px solid #2d3436; border-radius: 10px; font-size: 1.1em; font-family: 'Fredoka', cursive;">
+                </div>
+                <button onclick="saveGooseSettings()" style="width: 100%; padding: 15px; background: linear-gradient(135deg, #74b9ff 0%, #a29bfe 100%); color: white; border: 4px solid #2d3436; border-radius: 15px; font-size: 1.2em; font-weight: 700; cursor: pointer; box-shadow: 0 5px 0 #2d3436; font-family: 'Fredoka', cursive;">
+                    💾 Save Goose Settings
+                </button>
+            </div>
+
+            <div class="info-section" style="text-align: center;">
+                <h3>📱 QR Codes</h3>
+                <p style="margin-bottom: 20px;">Print these QR codes for the kids to scan!</p>
+                
+                <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-top: 20px;">
+                    <div style="background: white; padding: 20px; border-radius: 15px; border: 4px solid #2d3436;">
+                        <div id="duck-qr" style="margin: 10px;"></div>
+                        <p style="font-weight: 700; margin-top: 10px;">🦆 Duck Eggs</p>
+                    </div>
+                    <div style="background: white; padding: 20px; border-radius: 15px; border: 4px solid #2d3436;">
+                        <div id="goose-qr" style="margin: 10px;"></div>
+                        <p style="font-weight: 700; margin-top: 10px;">🪿 Goose Eggs</p>
+                    </div>
+                </div>
+                
+                <button onclick="window.print()" style="margin-top: 25px; padding: 15px 30px; background: linear-gradient(135deg, #55efc4 0%, #00b894 100%); color: white; border: 4px solid #2d3436; border-radius: 15px; font-size: 1.3em; font-weight: 700; cursor: pointer; box-shadow: 0 5px 0 #2d3436; font-family: 'Fredoka', cursive;">
+                    🖨️ Print QR Codes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // TODO: Add your Supabase URL and anon key here
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const duckStages = {
+            0: { emoji: '🥚', desc: 'The egg is just starting! Inside is a tiny cell that will become a duckling.' },
+            1: { emoji: '🥚', desc: 'The baby duck\'s heart is forming! It\'s smaller than a grain of rice.' },
+            3: { emoji: '🥚', desc: 'The heart is beating! Blood vessels are spreading like tiny rivers.' },
+            5: { emoji: '🥚', desc: 'Eyes are starting to form! The duckling is getting bigger.' },
+            7: { emoji: '🥚', desc: 'Legs and wings are growing! The baby duck is taking shape.' },
+            10: { emoji: '🥚', desc: 'The beak is forming! Feathers are starting to grow.' },
+            14: { emoji: '🐣', desc: 'The duckling is getting fluffy! It\'s moving around inside the egg.' },
+            18: { emoji: '🐣', desc: 'Almost ready! The duckling is practicing breathing.' },
+            21: { emoji: '🐣', desc: 'Getting ready to hatch! The duckling is very active now.' },
+            25: { emoji: '🐣', desc: 'Any day now! The duckling is filling up most of the egg.' },
+            26: { emoji: '🐥', desc: 'Hatch watch! The duckling might start pecking through the shell!' },
+            27: { emoji: '🐥', desc: 'Could hatch today! Listen for peeping sounds!' },
+            28: { emoji: '🦆', desc: 'HATCH DAY! Welcome to the world, little duckling! 🎉' }
+        };
+
+        const gooseStages = {
+            0: { emoji: '🥚', desc: 'The egg is just starting! Inside is a tiny cell that will become a gosling.' },
+            1: { emoji: '🥚', desc: 'The baby goose\'s heart is forming! It\'s very tiny right now.' },
+            3: { emoji: '🥚', desc: 'The heart is beating! Blood vessels are growing.' },
+            5: { emoji: '🥚', desc: 'Eyes are starting to form! The gosling is growing.' },
+            7: { emoji: '🥚', desc: 'Legs and wings are growing! The baby goose is taking shape.' },
+            10: { emoji: '🥚', desc: 'The beak is forming! Tiny feathers are appearing.' },
+            14: { emoji: '🥚', desc: 'Getting bigger! The gosling is moving inside the egg.' },
+            18: { emoji: '🐣', desc: 'Feathers are growing! The gosling looks more like a baby bird.' },
+            21: { emoji: '🐣', desc: 'Almost ready! The gosling is practicing breathing.' },
+            25: { emoji: '🐣', desc: 'Getting close! The gosling is very active inside.' },
+            28: { emoji: '🐣', desc: 'Any day now! The gosling is almost ready to hatch!' },
+            29: { emoji: '🐥', desc: 'Could hatch today! The gosling might start pecking!' },
+            30: { emoji: '🪿', desc: 'HATCH DAY! Welcome, little gosling! 🎉' }
+        };
+
+        async function loadEggData() {
+            const { data, error } = await supabase.from('egg_batches').select('*');
+            if (error) console.error('Error:', error);
+            return data || [];
+        }
+
+        async function updateEggBatch(type, startDate, eggCount) {
+            const incubationDays = type === 'ducks' ? 28 : 30;
+            const { error } = await supabase.from('egg_batches').upsert({
+                type, start_date: startDate, egg_count: eggCount, incubation_days: incubationDays
+            }, { onConflict: 'type' });
+            if (error) { alert('Error: ' + error.message); return false; }
+            return true;
+        }
+
+        function calculateDay(startDate) {
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const start = new Date(startDate); start.setHours(0, 0, 0, 0);
+            return Math.max(0, Math.floor((today - start) / 86400000));
+        }
+
+        function getStageForDay(day, stages) {
+            const keys = Object.keys(stages).map(Number).sort((a, b) => a - b);
+            let key = keys[0];
+            for (let k of keys) if (day >= k) key = k;
+            return stages[key];
+        }
+
+        function formatHatchDate(startDate, days) {
+            const d = new Date(startDate);
+            d.setDate(d.getDate() + days);
+            return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+        }
+
+        function renderBirdView(type, data) {
+            const stages = type === 'ducks' ? duckStages : gooseStages;
+            const day = calculateDay(data.start_date);
+            const stage = getStageForDay(day, stages);
+            document.getElementById(type + '-content').innerHTML = `
+                <div class="day-badge">Day ${day}</div>
+                <div class="egg-image"><div style="font-size: 8em;">${stage.emoji}</div></div>
+                <div class="info-section"><h3>🌡️ Temperature & Humidity</h3><div><span class="stat-box">🌡️ 99.5°F</span><span class="stat-box">💧 55% humidity</span></div></div>
+                <div class="info-section"><h3>✨ What's Happening Inside?</h3><p>${stage.desc}</p></div>
+                <div class="info-section"><h3>🥚 Egg Count</h3><p style="font-size: 1.5em; font-weight: 700; text-align: center;">${data.egg_count} eggs!</p></div>
+                <div class="hatch-countdown">Hatch day: Around ${formatHatchDate(data.start_date, data.incubation_days)}! 🎉</div>
+            `;
+        }
+
+        async function updateDisplay() {
+            const data = await loadEggData();
+            const duck = data.find(d => d.type === 'ducks');
+            const goose = data.find(d => d.type === 'geese');
+            if (duck) {
+                renderBirdView('ducks', duck);
+                document.getElementById('duck-start').value = duck.start_date;
+                document.getElementById('duck-count').value = duck.egg_count;
+            }
+            if (goose) {
+                renderBirdView('geese', goose);
+                document.getElementById('goose-start').value = goose.start_date;
+                document.getElementById('goose-count').value = goose.egg_count;
+            }
+        }
+
+        async function saveDuckSettings() {
+            const date = document.getElementById('duck-start').value;
+            const count = parseInt(document.getElementById('duck-count').value);
+            if (!date || !count) { alert('Fill in both fields!'); return; }
+            if (await updateEggBatch('ducks', date, count)) {
+                alert('🦆 Saved!');
+                await updateDisplay();
+                generateQRCodes();
+            }
+        }
+
+        async function saveGooseSettings() {
+            const date = document.getElementById('goose-start').value;
+            const count = parseInt(document.getElementById('goose-count').value);
+            if (!date || !count) { alert('Fill in both fields!'); return; }
+            if (await updateEggBatch('geese', date, count)) {
+                alert('🪿 Saved!');
+                await updateDisplay();
+                generateQRCodes();
+            }
+        }
+
+        function generateQRCodes() {
+            const base = window.location.href.split('?')[0];
+            document.getElementById('duck-qr').innerHTML = '';
+            document.getElementById('goose-qr').innerHTML = '';
+            new QRCode(document.getElementById('duck-qr'), { text: base + '?view=ducks', width: 200, height: 200, colorDark: '#2d3436', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.H });
+            new QRCode(document.getElementById('goose-qr'), { text: base + '?view=geese', width: 200, height: 200, colorDark: '#2d3436', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.H });
+        }
+
+        function showTab(tab) {
+            ['ducks-content', 'geese-content', 'admin-content'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            const idx = { ducks: 0, geese: 1, admin: 2 }[tab];
+            document.getElementById(tab + '-content').classList.remove('hidden');
+            document.querySelectorAll('.tab')[idx].classList.add('active');
+        }
+
+        window.addEventListener('load', async () => {
+            await updateDisplay();
+            const view = new URLSearchParams(window.location.search).get('view');
+            if (view) showTab(view);
+            generateQRCodes();
+        });
+    </script>
+</body>
+</html>
