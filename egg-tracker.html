@@ -1,21 +1,20 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Egg Watch</title>
+<title>🥚 Egg Watch</title>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-
 body{
 font-family: Arial;
-background:#f5c57a;
-text-align:center;
+background:#f6c778;
 padding:20px;
+text-align:center;
 }
 
 .container{
@@ -25,28 +24,28 @@ margin:auto;
 
 .tabs{
 display:flex;
-gap:10px;
 justify-content:center;
+gap:10px;
 margin-bottom:20px;
 }
 
 .tab{
-padding:15px 30px;
-border-radius:20px;
-border:3px solid black;
+padding:12px 25px;
 background:white;
+border:3px solid black;
+border-radius:15px;
 cursor:pointer;
 font-weight:bold;
 }
 
 .tab.active{
-background:#7da6ff;
+background:#7ea7ff;
 color:white;
 }
 
 .content{
 background:white;
-padding:30px;
+padding:25px;
 border-radius:25px;
 border:4px solid black;
 }
@@ -54,25 +53,36 @@ border:4px solid black;
 .day{
 font-size:30px;
 font-weight:bold;
-margin-bottom:20px;
+margin-bottom:10px;
 }
 
 .emoji{
 font-size:80px;
 }
 
-.stat{
-margin:10px;
-font-weight:bold;
-}
-
 .info{
-background:#fff4c5;
+background:#fff4c8;
 padding:15px;
 border-radius:15px;
-margin-top:20px;
+margin-top:15px;
 }
 
+.admin input,select{
+padding:10px;
+margin:5px;
+font-size:16px;
+}
+
+button{
+padding:10px 20px;
+margin-top:10px;
+font-size:16px;
+cursor:pointer;
+}
+
+.qr{
+margin-top:20px;
+}
 </style>
 </head>
 
@@ -86,14 +96,42 @@ margin-top:20px;
 <div class="tabs">
 <div class="tab active" onclick="showTab('ducks')">🦆 Ducks</div>
 <div class="tab" onclick="showTab('geese')">🪿 Geese</div>
+<div class="tab" onclick="showTab('admin')">⚙️ Admin</div>
 </div>
 
-<div id="ducks-content" class="content">
-Loading duck data...
-</div>
+<div id="ducks-content" class="content">Loading duck data...</div>
 
 <div id="geese-content" class="content" style="display:none">
 Loading goose data...
+</div>
+
+<div id="admin-content" class="content admin" style="display:none">
+
+<h2>Add / Update Egg Batch</h2>
+
+<select id="egg-type">
+<option value="ducks">Ducks</option>
+<option value="geese">Geese</option>
+</select>
+
+<br>
+
+<input type="date" id="egg-start">
+
+<br>
+
+<input type="number" id="egg-count" placeholder="Egg Count">
+
+<br>
+
+<button onclick="addEggBatch()">Save Eggs</button>
+
+<div class="qr">
+<h3>QR Codes</h3>
+<div id="duckQR"></div>
+<div id="gooseQR"></div>
+</div>
+
 </div>
 
 </div>
@@ -101,37 +139,40 @@ Loading goose data...
 
 <script>
 
-/* SUPABASE SETTINGS */
+/* SUPABASE */
 
 const SUPABASE_URL="https://jzpipxvxrtdhmsdkveog.supabase.co"
 const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6cGlweHZ4cnRkaG1zZGt2ZW9nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NTE1MjUsImV4cCI6MjA4NTMyNzUyNX0.7mm0ts91y0leGKLFCgRk6KJitah3V5WJZdiD_gHL57o"
 
-/* IMPORTANT: avoid naming conflict */
 const sb = supabase.createClient(SUPABASE_URL,SUPABASE_KEY)
 
-
-/* INCUBATION STAGES */
+/* DUCK STAGES */
 
 const duckStages={
 0:{emoji:"🥚",desc:"Egg just started"},
-3:{emoji:"❤️",desc:"Heart beating"},
-7:{emoji:"👁",desc:"Eyes forming"},
-14:{emoji:"🐣",desc:"Feathers growing"},
+2:{emoji:"🫀",desc:"Tiny heart forming"},
+4:{emoji:"❤️",desc:"Heart beating"},
+7:{emoji:"👁",desc:"Eyes forming — good candling day"},
+10:{emoji:"🐤",desc:"Beak developing"},
+14:{emoji:"🐣",desc:"Feathers starting"},
+18:{emoji:"🐥",desc:"Duckling moving"},
 25:{emoji:"⚠️",desc:"Lockdown begins"},
 28:{emoji:"🦆",desc:"Hatch day!"}
 }
 
+/* GOOSE STAGES */
+
 const gooseStages={
 0:{emoji:"🥚",desc:"Egg just started"},
-5:{emoji:"❤️",desc:"Heart beating"},
-10:{emoji:"👁",desc:"Eyes forming"},
-18:{emoji:"🐣",desc:"Feathers growing"},
+3:{emoji:"❤️",desc:"Heart beating"},
+7:{emoji:"👁",desc:"Eyes forming"},
+14:{emoji:"🐣",desc:"Feathers growing"},
+21:{emoji:"🐥",desc:"Gosling moving"},
 27:{emoji:"⚠️",desc:"Lockdown begins"},
 30:{emoji:"🪿",desc:"Hatch day!"}
 }
 
-
-/* DATE CALCULATION */
+/* CALCULATE DAY */
 
 function getDay(start){
 
@@ -145,8 +186,7 @@ return Math.floor((today-startDate)/86400000)
 
 }
 
-
-/* STAGE FINDER */
+/* GET STAGE */
 
 function getStage(day,stages){
 
@@ -155,55 +195,38 @@ let keys=Object.keys(stages).map(Number).sort((a,b)=>a-b)
 let current=keys[0]
 
 for(let k of keys){
-if(day>=k){current=k}
+if(day>=k) current=k
 }
 
 return stages[current]
 
 }
 
-
 /* LOAD DATA */
 
 async function loadData(){
-
-try{
 
 let {data,error}=await sb.from("egg_batches").select("*")
 
 if(error){
 console.error(error)
-alert("Database error. Check console.")
 return
 }
 
 let duck=data.find(x=>x.type==="ducks")
 let goose=data.find(x=>x.type==="geese")
 
-if(duck){
-render("ducks",duck,duckStages)
-}
-
-if(goose){
-render("geese",goose,gooseStages)
-}
-
-}catch(err){
-
-console.error(err)
+if(duck) render("ducks",duck,duckStages)
+if(goose) render("geese",goose,gooseStages)
 
 }
 
-}
-
-
-/* RENDER VIEW */
+/* RENDER */
 
 function render(type,data,stages){
 
-const day=getDay(data.start_date)
-
-const stage=getStage(day,stages)
+let day=getDay(data.start_date)
+let stage=getStage(day,stages)
 
 let hatch=new Date(data.start_date)
 hatch.setDate(hatch.getDate()+data.incubation_days)
@@ -214,13 +237,14 @@ let html=`
 
 <div class="emoji">${stage.emoji}</div>
 
-<div class="stat">${data.egg_count} eggs</div>
-
 <div class="info">${stage.desc}</div>
 
 <div class="info">
-Hatch date around:<br>
-<b>${hatch.toDateString()}</b>
+${data.egg_count} eggs
+</div>
+
+<div class="info">
+Hatch around: <b>${hatch.toDateString()}</b>
 </div>
 
 `
@@ -229,25 +253,72 @@ document.getElementById(type+"-content").innerHTML=html
 
 }
 
+/* ADMIN ADD */
 
-/* TAB SWITCH */
+async function addEggBatch(){
+
+let type=document.getElementById("egg-type").value
+let start=document.getElementById("egg-start").value
+let count=parseInt(document.getElementById("egg-count").value)
+
+let incubation=type==="ducks"?28:30
+
+let {error}=await sb.from("egg_batches").upsert({
+type:type,
+start_date:start,
+egg_count:count,
+incubation_days:incubation
+})
+
+if(error){
+alert(error.message)
+return
+}
+
+alert("Egg batch saved!")
+
+loadData()
+
+}
+
+/* TABS */
 
 function showTab(tab){
 
 document.getElementById("ducks-content").style.display="none"
 document.getElementById("geese-content").style.display="none"
+document.getElementById("admin-content").style.display="none"
 
 document.getElementById(tab+"-content").style.display="block"
 
 let tabs=document.querySelectorAll(".tab")
-
 tabs.forEach(t=>t.classList.remove("active"))
 
-if(tab==="ducks"){tabs[0].classList.add("active")}
-if(tab==="geese"){tabs[1].classList.add("active")}
+if(tab==="ducks") tabs[0].classList.add("active")
+if(tab==="geese") tabs[1].classList.add("active")
+if(tab==="admin") tabs[2].classList.add("active")
 
 }
 
+/* QR CODES */
+
+function generateQR(){
+
+let base=window.location.origin+window.location.pathname
+
+new QRCode(document.getElementById("duckQR"),{
+text:base+"?view=ducks",
+width:120,
+height:120
+})
+
+new QRCode(document.getElementById("gooseQR"),{
+text:base+"?view=geese",
+width:120,
+height:120
+})
+
+}
 
 /* INIT */
 
@@ -255,9 +326,12 @@ window.onload=()=>{
 
 loadData()
 
+generateQR()
+
 }
 
 </script>
 
 </body>
 </html>
+```
